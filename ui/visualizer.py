@@ -3,7 +3,7 @@ from core.mishkat_processor import process_text
 from core.force_graph_injection import render_force_graph
 
 def render_visualizer():
-    st.title("📡 رادار البصيرة — Mishkat")
+    st.title("📡 رادار البصيرة — Mishkat v1.1")
 
     user_input = st.text_area("أدخل نصًا لتحليل الجذور:", "")
 
