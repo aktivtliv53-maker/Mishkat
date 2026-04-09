@@ -4,7 +4,7 @@ from .state_normalizer import normalize_state
 
 class MishkatSystem:
     def __init__(self):
-        self.version = "1.0.0"
+        self.version = "1.1.0"
         self.identity = "Mishkat Sovereign System"
 
     def process_input(self, text, title="مسار وجودي جديد"):
