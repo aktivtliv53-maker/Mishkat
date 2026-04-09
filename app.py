@@ -1,28 +1,50 @@
 import streamlit as st
-from ui import mode_single, mode_compare, mode_dashboard
+from core.mishkat_orchestrator import MishkatSystem
+from ui.sidebar import render_sidebar
+from ui.dashboard import render_dashboard
+from ui.visualizer import render_visualizer
 
-# إعداد الصفحة بهوية "مشكاة"
-st.set_page_config(page_title="Mishkat v100", layout="wide", page_icon="💡")
-
-# الهوية البصرية السيادية لنظام مشكاة
-st.sidebar.title("💡 نظام مشكاة (Mishkat)")
-st.sidebar.markdown("*نور على نور - للهندسة الوجودية*")
-st.sidebar.markdown("---")
-
-# اختيار مسار الوعي
-choice = st.sidebar.radio(
-    "اختر مدار البحث:",
-    ["التحليل الفردي (Single)", "مقارنة المدارات (Compare)", "لوحة القيادة (Dashboard)"]
+# إعدادات الصفحة السيادية
+st.set_page_config(
+    page_title="مشكاة: النظام السيادي",
+    page_icon="✨",
+    layout="wide",
+    initial_sidebar_state="expanded"
 )
 
-# الربط بين الاختيار والواجهات
-if choice == "التحليل الفردي (Single)":
-    mode_single.run()
-elif choice == "مقارنة المدارات (Compare)":
-    mode_compare.run()
-else:
-    mode_dashboard.run()
+# تهيئة النظام
+if "mishkat" not in st.session_state:
+    st.session_state.mishkat = MishkatSystem()
 
-st.sidebar.markdown("---")
-st.sidebar.info("بعلم مكين نسخر خلاصة التمكين")
-st.sidebar.caption("Mishkat Sovereign System © 2026")
+def main():
+    # 1. رصد الهوية والجانب (Sidebar)
+    menu_choice = render_sidebar()
+
+    # 2. منطقة العمل الرئيسية
+    if menu_choice == "لوحة التحكم":
+        st.title("🛡️ لوحة التحكم السيادية")
+        render_dashboard()
+        
+    elif menu_choice == "المحرك البصري":
+        st.title("🌐 رادار المدارات المقلوبة")
+        # بيانات تجريبية للمحرك البصري حتى يتم ربط القاعدة بالكامل
+        sample_data = {
+            "nodes": [
+                {"id": "نور", "label": "نور", "semantic_phase": "light"},
+                {"id": "قدر", "label": "قدر", "semantic_phase": "power"},
+                {"id": "زكي", "label": "زكي", "semantic_phase": "purification"}
+            ],
+            "edges": [
+                {"source": "نور", "target": "قدر", "weight": 2},
+                {"source": "قدر", "target": "زكي", "weight": 1}
+            ]
+        }
+        render_visualizer(sample_data)
+
+    elif menu_choice == "إعدادات النظام":
+        st.title("⚙️ إعدادات مشكاة")
+        st.write(f"إصدار النظام: {st.session_state.mishkat.version}")
+        st.info("النظام يعمل الآن بكامل طاقته السيادية.")
+
+if __name__ == "__main__":
+    main()
