@@ -3,7 +3,7 @@ from core.mishkat_processor import process_text
 from core.force_graph_injection import render_force_graph
 
 def render_visualizer():
-    st.title("📡 رادار البصيرة — Mishkat v1.1")
+    st.title("📡 رادار البصيرة — Mishkat v1.2")
 
     user_input = st.text_area("أدخل نصًا لتحليل الجذور:", "")
 
@@ -12,19 +12,21 @@ def render_visualizer():
             st.warning("الرجاء إدخال نص أولًا.")
             return
 
-        # 1) تحليل النص عبر معالج مشكاة الحقيقي
         state = process_text(user_input)
 
-        # 2) استخراج بيانات الشبكة
+        # دمج Q-index داخل العقد
+        nodes = []
+        for n, q in zip(state["graph_nodes"], state["roots"]):
+            n["q_index"] = len(q) * 0.33
+            nodes.append(n)
+
         graph_data = {
-            "nodes": state["graph_nodes"],
+            "nodes": nodes,
             "edges": state["graph_edges"]
         }
 
-        # 3) عرض الشبكة
         st.subheader("🔍 شبكة الجذور")
         render_force_graph(graph_data)
 
-        # 4) عرض معلومات إضافية
         st.subheader("📊 معلومات التحليل")
         st.write(state)
