@@ -1,4 +1,4 @@
-from .mishkat_processor import extract_mishkat_root, calculate_q_index
+from .mishkat_processor import process_text
 from .mishkat_db import save_session
 from .state_normalizer import normalize_state
 
@@ -9,26 +9,22 @@ class MishkatSystem:
 
     def process_input(self, text, title="مسار وجودي جديد"):
         """
-        تنسيق عملية المعالجة: استخلاص، تقييس، ثم حفظ
+        المعالج السيادي الموحد:
+        - تحليل النص
+        - بناء شبكة الجذور
+        - تقييس الحالة
+        - حفظ الجلسة
         """
-        # 1. تحليل النص واستخراج الجذر والطور
-        analysis = extract_mishkat_root(text)
-        
-        # 2. حساب مؤشر الوعي
-        q_val = calculate_q_index(analysis["root"])
-        
-        # 3. تقييس الحالة لنظام مشكاة
-        state = normalize_state({
-            "id": analysis["root"],
-            "label": text,
-            "semantic_phase": analysis["phase"],
-            "q_index": q_val
-        })
-        
-        # 4. الأرشفة السيادية في قاعدة البيانات
-        save_session(title, text, analysis["phase"])
-        
-        return state
+        # 1) تحليل النص عبر المعالج الكامل
+        state = process_text(text)
+
+        # 2) تقييس الحالة
+        normalized = normalize_state(state)
+
+        # 3) حفظ الجلسة
+        save_session(title, text, state["semantic_phases"][0] if state["semantic_phases"] else "unknown")
+
+        return normalized
 
     def get_system_status(self):
         return {
