@@ -6,15 +6,19 @@ _FORCE_GRAPH_TEMPLATE = """
 <!DOCTYPE html>
 <html>
 <head>
+    <meta charset="utf-8" />
     <script src="https://unpkg.com/3d-force-graph"></script>
     <style>
-        body { margin: 0; background-color: #050816; overflow: hidden; }
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #050816;
+        }
         #graph {
-            width: 100vw;
-            height: 100vh;
+            width: 100%;
+            height: 100%;
             position: absolute;
-            top: 0;
-            left: 0;
+            inset: 0;
         }
     </style>
 </head>
@@ -29,16 +33,26 @@ _FORCE_GRAPH_TEMPLATE = """
             links: gData.edges || gData.links
         };
 
-        // تأخير بسيط لضمان تحميل العنصر
-        setTimeout(() => {
-            const Graph = ForceGraph3D()(document.getElementById('graph'))
+        function initGraph() {
+            const elem = document.getElementById('graph');
+            if (!elem) return;
+
+            const Graph = ForceGraph3D()(elem)
                 .graphData(data)
-                .nodeLabel('label')
+                .nodeLabel(node => node.label || node.id)
                 .nodeAutoColorBy('semantic_phase')
-                .backgroundColor('#050816')
                 .nodeRelSize(6)
-                .linkOpacity(0.4);
-        }, 200);
+                .linkOpacity(0.4)
+                .backgroundColor('#050816');
+
+            // إعادة ضبط الكاميرا بعد التحميل
+            setTimeout(() => {
+                Graph.zoomToFit(400);
+            }, 800);
+        }
+
+        // تأخير بسيط لضمان تحميل DOM
+        setTimeout(initGraph, 200);
     </script>
 </body>
 </html>
@@ -46,4 +60,4 @@ _FORCE_GRAPH_TEMPLATE = """
 
 def render_force_graph(graph_data):
     data_str = json.dumps(graph_data, ensure_ascii=False)
-    html(_FORCE_GRAPH_TEMPLATE.replace("{data_json}", data_str), height=700)
+    html(_FORCE_GRAPH_TEMPLATE.replace("{data_json}", data_str), height=650)
