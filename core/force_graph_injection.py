@@ -30,7 +30,7 @@ _FORCE_GRAPH_TEMPLATE = """
 
         const data = {
             nodes: gData.nodes,
-            links: gData.edges || gData.links
+            links: gData.edges
         };
 
         function initGraph() {
@@ -39,19 +39,29 @@ _FORCE_GRAPH_TEMPLATE = """
 
             const Graph = ForceGraph3D()(elem)
                 .graphData(data)
-                .nodeLabel(node => node.label || node.id)
+                .nodeLabel(node => `${node.label} — Q:${node.q_index}`)
                 .nodeAutoColorBy('semantic_phase')
                 .nodeRelSize(6)
                 .linkOpacity(0.4)
                 .backgroundColor('#050816');
 
-            // إعادة ضبط الكاميرا بعد التحميل
+            // حركة كاميرا سينمائية
+            let angle = 0;
+            setInterval(() => {
+                angle += 0.003;
+                Graph.cameraPosition({
+                    x: 200 * Math.sin(angle),
+                    y: 40,
+                    z: 200 * Math.cos(angle)
+                });
+            }, 30);
+
+            // تكبير تلقائي
             setTimeout(() => {
                 Graph.zoomToFit(400);
             }, 800);
         }
 
-        // تأخير بسيط لضمان تحميل DOM
         setTimeout(initGraph, 200);
     </script>
 </body>
