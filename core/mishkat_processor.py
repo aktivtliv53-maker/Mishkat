@@ -35,15 +35,21 @@ def normalize(text):
 def find_root(word):
     db = _load_db()
     word_clean = normalize(word)
+
     prefixes = ["ال", "و", "ف", "ب", "ل", "س", "ك"]
     candidates = [word_clean]
     for p in prefixes:
         if word_clean.startswith(p) and len(word_clean) > len(p) + 1:
             candidates.append(word_clean[len(p):])
+
+    db_normalized = {normalize(r): r for r in db}
+
     for candidate in candidates:
-        for root in db:
-            if normalize(root) == candidate:
-                return root
+        if candidate in db_normalized:
+            return db_normalized[candidate]
+        for root_clean, root_orig in db_normalized.items():
+            if len(root_clean) >= 2 and root_clean in candidate:
+                return root_orig
     return None
 
 # ---------------------------------------------------------
