@@ -1,117 +1,122 @@
 import re
+import json
+import os
 
 # ---------------------------------------------------------
-# 1) استخراج الجذر وتحديد الطور الدلالي (Mishkat Root Engine)
+# تحميل قاعدة البيانات
 # ---------------------------------------------------------
-def extract_mishkat_root(word):
-    """
-    استخلاص الجذر وتحليله وفق منطق مشكاة (تطهير السوابق واللواحق)
-    """
-    if not isinstance(word, str):
-        return {"root": "", "phase": "light"}
+_DB = None
 
-    # إزالة الرموز
-    w = re.sub(r'[^\u0621-\u064A\s]', '', word)
+def _load_db():
+    global _DB
+    if _DB is not None:
+        return _DB
+    base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    path = os.path.join(base, "data", "roots_mapped.json")
+    with open(path, encoding="utf-8") as f:
+        data = json.load(f)
+    _DB = {entry["root"]: entry for entry in data}
+    return _DB
 
-    # السوابق الشائعة
-    prefixes = ['ال', 'ب', 'و', 'ف', 'س']
+# ---------------------------------------------------------
+# 1) تطبيع النص العربي
+# ---------------------------------------------------------
+def normalize(text):
+    if not text:
+        return ""
+    text = re.sub(r"[ًٌٍَُِّْـٰ]", "", text)
+    text = re.sub(r"[أإآٱ]", "ا", text)
+    text = text.replace("ة", "ه").replace("ى", "ي")
+    return text.strip()
+
+# ---------------------------------------------------------
+# 2) البحث عن جذر كلمة في القاعدة
+# ---------------------------------------------------------
+def find_root(word):
+    db = _load_db()
+    word_clean = normalize(word)
+    prefixes = ["ال", "و", "ف", "ب", "ل", "س", "ك"]
+    candidates = [word_clean]
     for p in prefixes:
-        if w.startswith(p) and len(w) > 3:
-            w = w[len(p):]
-
-    # تحديد الطور الدلالي
-    phase = "light"
-    if any(c in w for c in ['ق', 'د', 'ر']):
-        phase = "power"
-    if any(c in w for c in ['ز', 'ك', 'ي']):
-        phase = "purification"
-    if any(c in w for c in ['ر', 'ح', 'م']):
-        phase = "mercy"
-
-    return {"root": w, "phase": phase}
-
+        if word_clean.startswith(p) and len(word_clean) > len(p) + 1:
+            candidates.append(word_clean[len(p):])
+    for candidate in candidates:
+        for root in db:
+            if normalize(root) == candidate:
+                return root
+    return None
 
 # ---------------------------------------------------------
-# 2) حساب مؤشر الوعي (Q-Index)
+# 3) استخراج بيانات جذر كامل
 # ---------------------------------------------------------
-def calculate_q_index(root):
-    """
-    حساب مؤشر الوعي بناءً على طول الجذر (مؤقتًا)
-    """
-    return len(root) * 0.33
+def get_root_data(word):
+    db = _load_db()
+    root = find_root(word)
+    if not root:
+        return None
+    return db.get(root)
 
+# ---------------------------------------------------------
+# 4) تحليل نص كامل
+# ---------------------------------------------------------
+def process_text(text):
+    if not isinstance(text, str):
+        return {}
+
+    words = text.split()
+    results = []
+    all_ayahs = {}
+
+    for word in words:
+        data = get_root_data(word)
+        if data:
+            results.append({
+                "word": word,
+                "root": data["root"],
+                "meanings": data["meanings"],
+                "ayah_count": data["ayah_count"]
+            })
+            for ayah in data["ayahs"]:
+                key = ayah["index"]
+                if key not in all_ayahs:
+                    all_ayahs[key] = ayah
+
+    return {
+        "raw_text": text,
+        "words_analyzed": results,
+        "total_ayahs": len(all_ayahs),
+        "ayahs": sorted(all_ayahs.values(), key=lambda x: x["index"])
+    }
 
 # ---------------------------------------------------------
-# 3) بناء شبكة الجذور (Nodes + Edges)
+# 5) بناء شبكة الجذور للعرض البصري
 # ---------------------------------------------------------
-def build_root_graph(words):
-    """
-    بناء شبكة جذور من الكلمات المستخرجة
-    """
+def build_root_graph(text):
+    words = text.split()
     nodes = []
     edges = []
-
+    seen = set()
     last_root = None
 
-    for w in words:
-        info = extract_mishkat_root(w)
-        root = info["root"]
-        phase = info["phase"]
-
-        # عقدة
-        nodes.append({
-            "id": root,
-            "label": root,
-            "semantic_phase": phase
-        })
-
-        # رابط بين الجذور المتتابعة
+    for word in words:
+        data = get_root_data(word)
+        if not data:
+            continue
+        root = data["root"]
+        if root not in seen:
+            nodes.append({
+                "id": root,
+                "label": root,
+                "meanings": data["meanings"],
+                "ayah_count": data["ayah_count"]
+            })
+            seen.add(root)
         if last_root and last_root != root:
             edges.append({
                 "source": last_root,
                 "target": root,
                 "weight": 1
             })
-
         last_root = root
 
     return nodes, edges
-
-
-# ---------------------------------------------------------
-# 4) المعالج الرئيسي — Mishkat Processor
-# ---------------------------------------------------------
-def process_text(text):
-    """
-    المعالج الموحد الذي ينتج:
-    - جذور
-    - أطوار دلالية
-    - Q-index
-    - شبكة جذور كاملة
-    """
-    if not isinstance(text, str):
-        return {}
-
-    # تقسيم النص
-    words = text.split()
-
-    # استخراج الجذور
-    roots_info = [extract_mishkat_root(w) for w in words]
-    roots = [r["root"] for r in roots_info]
-
-    # حساب Q-index
-    q_index = sum(calculate_q_index(r) for r in roots)
-
-    # بناء الشبكة
-    graph_nodes, graph_edges = build_root_graph(words)
-
-    # الحالة النهائية
-    return {
-        "raw_text": text,
-        "words": words,
-        "roots": roots,
-        "semantic_phases": [r["phase"] for r in roots_info],
-        "q_index": q_index,
-        "graph_nodes": graph_nodes,
-        "graph_edges": graph_edges
-    }
