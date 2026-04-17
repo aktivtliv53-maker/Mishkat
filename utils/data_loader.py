@@ -1,53 +1,77 @@
-# utils/data_loader.py — v11
-# محرك تحميل القرآن — نسخة مستقرة وموسّعة
+# ============================
+#   Mishkat Data Loader v3.0
+#   (Auto Path Detection)
+# ============================
 
-import pandas as pd
+import os
+import csv
+import json
 
-def load_quran(path: str = "data/quran.csv"):
+
+def load_quran(filename="quran.csv"):
     """
-    تحميل القرآن من ملف CSV بصيغة:
-    surah_number, ayah_number, text
-    مع تجاهل أي أسطر تبدأ بـ # أو أسطر فارغة.
+    يقوم بالبحث تلقائيًا عن ملف القرآن في عدة مسارات محتملة
+    ويعيد أول ملف يجده بدون أي خطأ.
     """
 
-    cleaned_rows = []
+    # المسارات المحتملة
+    possible_paths = [
+        filename,
+        f"./{filename}",
+        f"data/{filename}",
+        f"./data/{filename}",
+        f"../data/{filename}",
+        os.path.join(os.path.dirname(__file__), "..", "data", filename),
+        os.path.join(os.path.dirname(__file__), "..", "..", "data", filename),
+    ]
 
-    # قراءة الملف الخام
+    for path in possible_paths:
+        if os.path.exists(path):
+            return _load_quran_file(path)
+
+    raise FileNotFoundError(
+        f"❌ لم يتم العثور على ملف القرآن في أي من المسارات التالية:\n{possible_paths}"
+    )
+
+
+def _load_quran_file(path):
+    """
+    تحميل ملف القرآن سواء كان CSV أو JSON
+    """
+    ext = os.path.splitext(path)[1].lower()
+
+    if ext == ".csv":
+        return _load_csv(path)
+
+    elif ext == ".json":
+        return _load_json(path)
+
+    else:
+        raise ValueError(f"صيغة غير مدعومة: {ext}")
+
+
+def _load_csv(path):
+    quran = []
     with open(path, "r", encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
+        reader = csv.DictReader(f)
+        for row in reader:
+            quran.append({
+                "surah_number": int(row.get("surah_number") or row.get("surah") or 0),
+                "ayah_number": int(row.get("ayah_number") or row.get("ayah") or 0),
+                "text": row.get("text", "")
+            })
+    return quran
 
-            # تجاهل الأسطر الفارغة
-            if not line:
-                continue
 
-            # تجاهل التعليقات
-            if line.startswith("#"):
-                continue
-
-            cleaned_rows.append(line)
-
-    # دمج الأسطر النظيفة
-    from io import StringIO
-    csv_data = "\n".join(cleaned_rows)
-
-    # قراءة CSV
-    df = pd.read_csv(StringIO(csv_data))
+def _load_json(path):
+    with open(path, "r", encoding="utf-8") as f:
+        data = json.load(f)
 
     quran = []
-    for _, row in df.iterrows():
-        try:
-            surah = int(row["surah_number"])
-            ayah = int(row["ayah_number"])
-            text = str(row["text"])
-        except:
-            # تجاهل أي صف غير صالح
-            continue
-
+    for ay in data:
         quran.append({
-            "surah_number": surah,
-            "ayah_number": ayah,
-            "text": text
+            "surah_number": int(ay.get("surah_number") or ay.get("surah") or 0),
+            "ayah_number": int(ay.get("ayah_number") or ay.get("ayah") or 0),
+            "text": ay.get("text", "")
         })
-
     return quran
