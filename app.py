@@ -34,7 +34,7 @@ st.caption("تحليل دلالي | توجيه ذكي | آية مختارة | ت
 
 @st.cache_data
 def get_quran():
-    return load_quran("data/quran.csv")
+    return load_quran()
 
 quran = get_quran()
 
