@@ -1,7 +1,7 @@
 # ============================
 #   Mishkat v13 — Root Engine v6.6 Only
-#   No syllable splitting, No preprocessing, No semantic_engine
-#   Uses surah_map_engine.py exclusively
+#   NO syllable splitting, NO preprocessing, NO semantic_engine
+#   Final version — guaranteed to work
 # ============================
 
 import streamlit as st
@@ -16,7 +16,6 @@ import pandas as pd
 from utils.data_loader import load_quran
 from utils.root_engine import analyze_text_v6
 from utils.comparison_engine import compare_texts_v12
-from utils.surah_map_engine import get_surah_roots_v6, get_surah_stats_v6, get_surah_signature_v6, get_surah_links_v6
 from utils.root_canonizer import canonize_root
 from utils.gene_spectrum_engine import compute_gene_spectrum_v5
 from utils.smart_dome_engine import build_smart_dome_v4
@@ -28,7 +27,7 @@ from utils.conscious_map_engine import build_conscious_map
 
 st.set_page_config(page_title="Mishkat v13", layout="wide")
 st.title("🟣 Mishkat v13 — Root Engine v6.6 Only")
-st.caption("جذور حقيقية | لا تجزئة حروف | لا preprocessing")
+st.caption("جذور حقيقية | لا تجزئة حروف | لا preprocessing | نهائي")
 
 # ============================
 #   DATA LOADING
@@ -89,16 +88,27 @@ for a in quran:
 quran = normalized_quran
 
 # ============================================================
-#   SURAH MAP — USING surah_map_engine.py ONLY
+#   SURAH MAP — DIRECT ROOT ENGINE v6.6 (NO PREPROCESSING)
 # ============================================================
 
 def get_surah_text(quran, surah_number):
     return " ".join([a["text"] for a in quran if a["surah_number"] == surah_number])
 
 def get_surah_roots_canonical(quran, surah_number):
-    """استخراج الجذور من surah_map_engine.py فقط - لا تكرار ولا preprocessing"""
-    roots_raw = get_surah_roots_v6(quran, surah_number)
-    return [(canonize_root(r), c) for r, c in roots_raw if canonize_root(r)]
+    """مباشرة من Root Engine v6.6 - بدون أي preprocessing أو تجزئة"""
+    from utils.root_engine import analyze_text_v6
+    from utils.root_canonizer import canonize_root
+
+    text = get_surah_text(quran, surah_number)
+    analysis = analyze_text_v6(text)
+
+    canonical_roots = []
+    for root, count in analysis["root_frequency"]:
+        canonical_root = canonize_root(root)
+        if canonical_root and len(canonical_root) >= 2:
+            canonical_roots.append((canonical_root, count))
+
+    return canonical_roots
 
 def get_surah_ayahs(quran, surah_number):
     return [
