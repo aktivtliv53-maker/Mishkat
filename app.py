@@ -10,6 +10,9 @@ import streamlit.components.v1 as components
 import math
 import colorsys
 import json
+import os
+import sys
+import pandas as pd
 
 from utils.data_loader import load_quran
 from utils.root_engine import analyze_text_v5
@@ -32,11 +35,36 @@ st.set_page_config(page_title="Mishkat v12", layout="wide")
 st.title("🟣 Mishkat v12 — Conscious Unified System")
 st.caption("تحليل دلالي | توجيه ذكي | آية مختارة | تفسير عميق | خريطة واعية")
 
-@st.cache_data
-def get_quran():
-    return load_quran()
+# ============================
+#   SECTION 1 — DATA LOADING
+#   (EXE + Local Compatibility)
+# ============================
 
-quran = get_quran()
+def get_path(rel_path):
+    # دعم PyInstaller EXE
+    if hasattr(sys, '_MEIPASS'):
+        return os.path.join(sys._MEIPASS, rel_path)
+    # دعم التشغيل المحلي
+    return os.path.join(os.path.abspath("."), rel_path)
+
+def load_quran_data():
+    try:
+        path = get_path("data/quran.parquet")
+        return pd.read_parquet(path)
+    except:
+        # إذا لم يوجد parquet، جرب csv أو json
+        try:
+            from utils.data_loader import load_quran as legacy_load
+            return legacy_load()
+        except:
+            st.error("❌ لم يتم العثور على ملف القرآن")
+            return []
+
+quran = load_quran_data()
+
+# إذا كان quran من pandas DataFrame، حوله إلى قائمة
+if isinstance(quran, pd.DataFrame):
+    quran = quran.to_dict('records')
 
 # ============================================================
 #   NORMALIZE QURAN KEYS
@@ -46,18 +74,18 @@ normalized_quran = []
 for a in quran:
     entry = {}
     if "surah" in a:
-        entry["surah_number"] = int(a["surah"])
+        entry["surah_number"] = int(a["surah"]) if a["surah"] else 0
     elif "surah_number" in a:
-        entry["surah_number"] = int(a["surah_number"])
+        entry["surah_number"] = int(a["surah_number"]) if a["surah_number"] else 0
     else:
-        entry["surah_number"] = None
+        entry["surah_number"] = 0
 
     if "ayah" in a:
-        entry["ayah_number"] = int(a["ayah"])
+        entry["ayah_number"] = int(a["ayah"]) if a["ayah"] else 0
     elif "ayah_number" in a:
-        entry["ayah_number"] = int(a["ayah_number"])
+        entry["ayah_number"] = int(a["ayah_number"]) if a["ayah_number"] else 0
     else:
-        entry["ayah_number"] = None
+        entry["ayah_number"] = 0
 
     if "text" in a:
         entry["text"] = a["text"]
@@ -215,53 +243,32 @@ with tabs[0]:
         else:
             result = run_full_analysis(q, quran)
 
-            # =========================
-            # الجذور
-            # =========================
             st.markdown("### 🧬 الجذور")
             st.write(result["roots"])
 
-            # =========================
-            # الحالة
-            # =========================
             st.markdown("### 🧠 الحالة")
             st.info(result["state"])
 
-            # =========================
-            # التوجيه
-            # =========================
             st.markdown("### 🧭 التوجيه")
             st.success(result["guidance"])
 
-            # =========================
-            # المسار (Journey)
-            # =========================
             st.markdown("### 🌌 المسار القرآني")
             for step in result["journey"]:
                 st.markdown(f"**{step['stage']}** — سورة {step['surah']}:{step['ayah']}")
                 st.write(step["text"])
                 st.markdown("---")
 
-            # =========================
-            # الآيات
-            # =========================
             st.markdown("### 📖 آيات مرتبطة")
             for m in result["matches"][:10]:
                 st.markdown(f"**سورة {m['surah_number']}:{m['ayah_number']}**")
                 st.write(m["text"])
                 st.markdown("---")
 
-            # =========================
-            # التفسير
-            # =========================
             st.markdown("### 📘 التفسير")
             for t in result["tafsir"]:
                 st.markdown(f"> {t['ayah'][:150]}...")
                 st.info(t["tafsir"])
 
-            # =========================
-            # الاستدلال
-            # =========================
             st.markdown("### 🧭 الاستدلال")
             st.write(result["reasoning"])
 
@@ -312,32 +319,20 @@ with tabs[2]:
         with st.spinner("جاري بناء الخريطة الواعية..."):
             result = build_conscious_map(surah_num, quran)
 
-            # =========================
-            # الجذور
-            # =========================
             st.markdown("### 🧬 الجذور")
             st.write(result["roots"])
 
-            # =========================
-            # الآيات المحورية
-            # =========================
             st.markdown("### 📖 آيات محورية")
             for ay in result["key_ayahs"]:
                 st.markdown(f"**سورة {ay['surah_number']}:{ay['ayah_number']}**")
                 st.write(ay["text"])
                 st.markdown("---")
 
-            # =========================
-            # التفسير
-            # =========================
             st.markdown("### 📘 التفسير")
             for t in result["tafsir"]:
                 st.markdown(f"> {t['text'][:150]}...")
                 st.info(t["tafsir"])
 
-            # =========================
-            # الاستدلال
-            # =========================
             st.markdown("### 🧭 مسار الفهم")
             st.write(result["reasoning"])
 
@@ -396,7 +391,7 @@ with tabs[7]:
     st.write({"عدد الجذور": mesh["root_count"], "عدد الروابط": mesh["link_count"]})
 
 # =========================================================
-# 9) 🗺️ Surah Map v6 (Radial Layers)
+# 9) 🗺️ Surah Map v6 (Radial Layers) — Responsive Canvas
 # =========================================================
 with tabs[8]:
     st.subheader("🗺️ Surah Map v6 — الخريطة الدائرية (Root Engine v5.3)")
@@ -433,205 +428,120 @@ with tabs[8]:
     else:
         st.success(f"✅ {len(currentSurahRoots)} جذراً مستخرجاً من Root Engine v5.3")
 
+        # ============================
+        #   SECTION 3 — RADIAL ROOT MAP
+        #   (Responsive Canvas + Scaling)
+        # ============================
+
         html_code = """
-        <div style='padding:10px; color:#e5e7eb; background:#020617; position:relative;'>
-            <h3>الخريطة الدائرية للجذور — Root Engine v5.3</h3>
-
-            <div id="tooltip" 
-                 style="position:absolute; 
-                        background:#111; 
-                        color:#fff; 
-                        padding:6px 10px; 
-                        border-radius:6px; 
-                        font-size:13px; 
-                        display:none; 
-                        pointer-events:none;
-                        z-index:1000;
-                        border:1px solid #22c55e;">
-            </div>
-
-            <canvas id="surahRadialMap" width="700" height="700"
-                    style="background:#05060a; border-radius:50%; display:block; margin:auto;"></canvas>
-
-            <script>
-                let t = 0;
-                let currentRoots = [];
-
-                function drawFrame() {
-                    const canvas = document.getElementById('surahRadialMap');
-                    const ctx = canvas.getContext('2d');
-                    const W = canvas.width;
-                    const H = canvas.height;
-                    const CX = W / 2;
-                    const CY = H / 2;
-                    const baseRadius = 120;
-                    const maxRadius = 280;
-
-                    const roots = currentRoots;
-
-                    if (!roots || roots.length === 0) return;
-
-                    ctx.clearRect(0, 0, W, H);
-
-                    const grd = ctx.createRadialGradient(CX, CY, 50, CX, CY, maxRadius);
-                    grd.addColorStop(0, '#111827');
-                    grd.addColorStop(1, '#020617');
-                    ctx.fillStyle = grd;
-                    ctx.beginPath();
-                    ctx.arc(CX, CY, maxRadius, 0, 2 * Math.PI);
-                    ctx.fill();
-
-                    const layers = [160, 200, 240, 280];
-                    
-                    const layerColors = {
-                        1: 'rgba(255,0,0,0.10)',
-                        2: 'rgba(255,165,0,0.08)',
-                        3: 'rgba(0,255,255,0.06)',
-                        4: 'rgba(255,255,255,0.04)'
-                    };
-
-                    layers.forEach((ring, idx) => {
-                        ctx.fillStyle = layerColors[idx + 1];
-                        ctx.beginPath();
-                        ctx.arc(CX, CY, ring, 0, 2 * Math.PI);
-                        ctx.fill();
-                    });
-
-                    layers.forEach(ring => {
-                        ctx.strokeStyle = 'rgba(255,255,255,0.08)';
-                        ctx.lineWidth = 1;
-                        ctx.beginPath();
-                        ctx.arc(CX, CY, ring, 0, 2 * Math.PI);
-                        ctx.stroke();
-                    });
-
-                    ctx.strokeStyle = '#22c55e';
-                    ctx.lineWidth = 1.2;
-                    ctx.beginPath();
-                    ctx.arc(CX, CY, baseRadius, 0, 2 * Math.PI);
-                    ctx.stroke();
-
-                    const pulse = 8 * Math.sin(t / 800);
-                    ctx.strokeStyle = 'rgba(34,197,94,0.4)';
-                    ctx.beginPath();
-                    ctx.arc(CX, CY, baseRadius + pulse, 0, 2 * Math.PI);
-                    ctx.stroke();
-
-                    roots.forEach((r, idx) => {
-                        const angle = (2 * Math.PI * idx) / roots.length;
-
-                        let layerBase = 0;
-                        if (r.layer === 1) layerBase = 160;
-                        else if (r.layer === 2) layerBase = 200;
-                        else if (r.layer === 3) layerBase = 240;
-                        else if (r.layer === 4) layerBase = 280;
-
-                        const dynamicRadius = layerBase + 10 * Math.sin(t / 600 + r.weight);
-
-                        const x = CX + dynamicRadius * Math.cos(angle);
-                        const y = CY + dynamicRadius * Math.sin(angle);
-
-                        if (r.weight <= 2) {
-                            ctx.beginPath();
-                            ctx.fillStyle = r.color + "55";
-                            ctx.arc(x, y, 3, 0, Math.PI * 2);
-                            ctx.fill();
-                            return;
-                        }
-
-                        ctx.strokeStyle = r.color;
-                        ctx.lineWidth = 0.8;
-                        ctx.beginPath();
-                        ctx.moveTo(CX, CY);
-                        ctx.lineTo(x, y);
-                        ctx.stroke();
-
-                        const nodeRadius = 6 + r.weight * 1.5;
-                        ctx.fillStyle = r.color;
-                        ctx.beginPath();
-                        ctx.arc(x, y, nodeRadius, 0, 2 * Math.PI);
-                        ctx.fill();
-
-                        ctx.strokeStyle = r.color.replace("rgb", "rgba").replace(")", ",0.4)");
-                        ctx.beginPath();
-                        ctx.arc(x, y, nodeRadius + 4 * Math.sin(t / 700 + idx), 0, 2 * Math.PI);
-                        ctx.stroke();
-
-                        ctx.fillStyle = '#e5e7eb';
-                        ctx.font = '12px sans-serif';
-                        ctx.textAlign = x >= CX ? 'left' : 'right';
-                        ctx.fillText(r.root, x + (x >= CX ? 8 : -8), y - 4);
-                    });
-
-                    ctx.fillStyle = '#a5b4fc';
-                    ctx.font = '14px sans-serif';
-                    ctx.textAlign = 'center';
-                    ctx.fillText('الخريطة الدائرية للجذور — Root Engine v5.3', CX, CY - 6);
-
-                    t++;
-                    requestAnimationFrame(drawFrame);
-                }
-
-                const canvas = document.getElementById('surahRadialMap');
-                const tooltip = document.getElementById('tooltip');
-
-                canvas.addEventListener('mousemove', function(e) {
-                    const rect = canvas.getBoundingClientRect();
-                    const mx = e.clientX - rect.left;
-                    const my = e.clientY - rect.top;
-                    const scaleX = canvas.width / rect.width;
-                    const scaleY = canvas.height / rect.height;
-                    const canvasX = mx * scaleX;
-                    const canvasY = my * scaleY;
-                    
-                    const CX_local = canvas.width / 2;
-                    const CY_local = canvas.height / 2;
-                    const roots_local = currentRoots;
-                    const t_local = t;
-
-                    let found = null;
-
-                    roots_local.forEach((r, idx) => {
-                        const angle = (2 * Math.PI * idx) / roots_local.length;
-                        let layerBase = 0;
-                        if (r.layer === 1) layerBase = 160;
-                        else if (r.layer === 2) layerBase = 200;
-                        else if (r.layer === 3) layerBase = 240;
-                        else if (r.layer === 4) layerBase = 280;
-                        const dynamicRadius = layerBase + 10 * Math.sin(t_local / 600 + r.weight);
-                        const x = CX_local + dynamicRadius * Math.cos(angle);
-                        const y = CY_local + dynamicRadius * Math.sin(angle);
-                        const dx = canvasX - x;
-                        const dy = canvasY - y;
-                        const threshold = r.weight <= 2 ? 12 : r.weight * 2 + 8;
-                        if (Math.sqrt(dx*dx + dy*dy) < threshold) {
-                            found = r;
-                        }
-                    });
-
-                    if (found) {
-                        tooltip.style.left = (e.clientX + 15) + "px";
-                        tooltip.style.top = (e.clientY + 15) + "px";
-                        tooltip.style.display = "block";
-                        tooltip.innerHTML = '<b>' + found.root + '</b><br>' +
-                                            'الوزن: ' + found.weight + '<br>' +
-                                            'الطبقة: ' + found.layer + '<br>' +
-                                            'الحروف: ' + found.letters + '<br>' +
-                                            'المجالات: ' + found.domains;
-                    } else {
-                        tooltip.style.display = "none";
-                    }
-                });
-
-                function updateRoots() {
-                    currentRoots = JSON.parse('""" + build_roots_json(0) + """');
-                }
-
-                updateRoots();
-                setInterval(updateRoots, 800);
-                drawFrame();
-            </script>
+        <div style="width:100%; display:flex; justify-content:center;">
+          <canvas id="surahRadialMap"
+                  style="width:100%; max-width:700px; aspect-ratio:1/1;
+                         background:#05060a; border-radius:50%;">
+          </canvas>
         </div>
+
+        <script>
+        (function () {
+          const canvas = document.getElementById('surahRadialMap');
+
+          function resizeCanvas() {
+            const size = Math.min(window.innerWidth * 0.9, 700);
+            canvas.width = size;
+            canvas.height = size;
+          }
+          resizeCanvas();
+          window.addEventListener('resize', resizeCanvas);
+
+          const ctx = canvas.getContext('2d');
+
+          function drawFrame(t) {
+            const W = canvas.width;
+            const H = canvas.height;
+            const CX = W / 2;
+            const CY = H / 2;
+
+            const scale = W / 700;
+
+            const baseRadius = 120 * scale;
+            const maxRadius = 280 * scale;
+
+            ctx.clearRect(0, 0, W, H);
+
+            const grd = ctx.createRadialGradient(CX, CY, 50 * scale, CX, CY, maxRadius);
+            grd.addColorStop(0, '#111827');
+            grd.addColorStop(1, '#020617');
+            ctx.fillStyle = grd;
+            ctx.beginPath();
+            ctx.arc(CX, CY, maxRadius, 0, 2 * Math.PI);
+            ctx.fill();
+
+            ctx.strokeStyle = '#22c55e';
+            ctx.lineWidth = 1.2 * scale;
+            ctx.beginPath();
+            ctx.arc(CX, CY, baseRadius, 0, 2 * Math.PI);
+            ctx.stroke();
+
+            const pulse = 8 * scale * Math.sin(t / 800);
+            ctx.strokeStyle = 'rgba(34,197,94,0.4)';
+            ctx.beginPath();
+            ctx.arc(CX, CY, baseRadius + pulse, 0, 2 * Math.PI);
+            ctx.stroke();
+
+            const roots = window.currentRoots || [];
+
+            roots.forEach((r, idx) => {
+              const angle = (2 * Math.PI * idx) / roots.length;
+              const dynamicRadius = baseRadius + 60 * scale + r.weight * 25 * scale
+                                    + 10 * scale * Math.sin(t / 600 + idx);
+
+              const x = CX + dynamicRadius * Math.cos(angle);
+              const y = CY + dynamicRadius * Math.sin(angle);
+
+              ctx.strokeStyle = r.color || 'rgba(96,165,250,0.5)';
+              ctx.lineWidth = 0.8 * scale;
+              ctx.beginPath();
+              ctx.moveTo(CX, CY);
+              ctx.lineTo(x, y);
+              ctx.stroke();
+
+              const nodeRadius = (6 + r.weight * 1.5) * scale;
+              ctx.fillStyle = r.color || '#f97316';
+              ctx.beginPath();
+              ctx.arc(x, y, nodeRadius, 0, 2 * Math.PI);
+              ctx.fill();
+
+              ctx.strokeStyle = 'rgba(249,115,22,0.4)';
+              ctx.beginPath();
+              ctx.arc(x, y, nodeRadius + 4 * scale * Math.sin(t / 700 + idx), 0, 2 * Math.PI);
+              ctx.stroke();
+
+              ctx.fillStyle = '#e5e7eb';
+              ctx.font = (12 * scale) + 'px sans-serif';
+              ctx.textAlign = x >= CX ? 'left' : 'right';
+              ctx.fillText(r.root, x + (x >= CX ? 8 * scale : -8 * scale), y - 4 * scale);
+            });
+
+            ctx.fillStyle = '#a5b4fc';
+            ctx.font = (14 * scale) + 'px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('الخريطة الدائرية للجذور', CX, CY - 6 * scale);
+          }
+
+          function animate(t) {
+            drawFrame(t || 0);
+            requestAnimationFrame(animate);
+          }
+
+          window.currentRoots = JSON.parse('""" + build_roots_json(0) + """');
+
+          setInterval(() => {
+            window.currentRoots = JSON.parse('""" + build_roots_json(0) + """');
+          }, 800);
+
+          requestAnimationFrame(animate);
+        })();
+        </script>
         """
 
         components.html(html_code, height=800)
