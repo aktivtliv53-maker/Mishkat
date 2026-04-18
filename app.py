@@ -474,7 +474,8 @@ with tabs[8]:
           let baseRotation = 0;
 
           function getRoots() {
-            const raw = window.currentRoots || [];
+            // التعديل الأول: استخدام surahRoots بدلاً من currentRoots
+            const raw = window.surahRoots || [];
             return raw.map((r, i) => ({
               root: r.root || r,
               weight: r.weight || 1,
@@ -701,7 +702,8 @@ with tabs[8]:
           }
 
           function updateRoots() {
-            window.currentRoots = JSON.parse('""" + build_roots_json(0) + """');
+            // التعديل الثاني: استخدام surahRoots بدلاً من currentRoots
+            window.surahRoots = JSON.parse('""" + build_roots_json(0) + """');
           }
 
           updateRoots();
