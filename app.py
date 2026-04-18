@@ -392,6 +392,7 @@ with tabs[7]:
 
 # =========================================================
 # 9) 🗺️ Surah Map v6 — الخريطة الدائرية (Root Engine v6.6)
+#    مع إخفاء العقدة المركزية وإزالة التكرار
 # =========================================================
 with tabs[8]:
     st.subheader("🗺️ Surah Map v6 — الخريطة الدائرية (Root Engine v6.6)")
@@ -400,9 +401,28 @@ with tabs[8]:
 
     currentSurahRoots = get_surah_roots_canonical(quran, surah_number)
 
+    def is_center_node(root):
+        """تحديد إذا كان الجذر هو العقدة المركزية (مثل منن أو مكرر الحروف)"""
+        if root in ["منن", "مـنـن", "م ن ن"]:
+            return True
+        if len(root) == 3 and root[0] == root[1] == root[2]:
+            return True
+        return False
+
     def build_roots_json(t):
         roots_list = []
+        seen = set()  # لمنع التكرار
+        
         for r, c in currentSurahRoots:
+            # إخفاء العقدة المركزية
+            if is_center_node(r):
+                continue
+            
+            # منع التكرار
+            if r in seen:
+                continue
+            seen.add(r)
+            
             color = hsv_color_for_root(r, c, t)
             layer = assign_radial_layer(c)
             letters = [L for L in r]
@@ -426,7 +446,16 @@ with tabs[8]:
     if not currentSurahRoots:
         st.warning("⚠️ لم يتم العثور على جذور لهذه السورة")
     else:
-        st.success(f"✅ {len(currentSurahRoots)} جذراً معيارياً مستخرجاً من Root Engine v6.6")
+        # إزالة العقدة المركزية من العرض والإحصاء
+        filtered_roots = [(r, c) for r, c in currentSurahRoots if not is_center_node(r)]
+        unique_roots = []
+        seen_names = set()
+        for r, c in filtered_roots:
+            if r not in seen_names:
+                seen_names.add(r)
+                unique_roots.append((r, c))
+        
+        st.success(f"✅ {len(unique_roots)} جذراً معيارياً مستخرجاً من Root Engine v6.6")
 
         html_code = """
         <div style="width:100%; display:flex; justify-content:center;">
@@ -698,8 +727,15 @@ except:
 try:
     test_roots = get_surah_roots_canonical(quran, 1)
     if test_roots:
-        st.success(f"✔ Root Engine v6.6 يعمل — {len(test_roots)} جذراً للسورة 1")
-        st.write("عينة من الجذور:", [r for r, _ in test_roots[:15]])
+        filtered = [(r, c) for r, c in test_roots if not (len(r) == 3 and r[0] == r[1] == r[2])]
+        unique = []
+        seen = set()
+        for r, c in filtered:
+            if r not in seen:
+                seen.add(r)
+                unique.append((r, c))
+        st.success(f"✔ Root Engine v6.6 يعمل — {len(unique)} جذراً فريداً للسورة 1")
+        st.write("عينة من الجذور:", [r for r, _ in unique[:15]])
     else:
         st.warning("⚠️ Root Engine v6.6 لم يستخرج جذوراً")
 except Exception as e:
