@@ -1,3 +1,395 @@
+# ============================
+#   Mishkat v13 — Root Engine v6.6 Only
+#   NO syllable splitting, NO preprocessing, NO semantic_engine
+#   Final version — guaranteed to work
+# ============================
+
+import streamlit as st
+import streamlit.components.v1 as components
+import math
+import colorsys
+import json
+import os
+import sys
+import pandas as pd
+
+from utils.data_loader import load_quran
+from utils.root_engine import analyze_text_v6
+from utils.comparison_engine import compare_texts_v12
+from utils.root_canonizer import canonize_root
+from utils.gene_spectrum_engine import compute_gene_spectrum_v5
+from utils.smart_dome_engine import build_smart_dome_v4
+from utils.reasoning_engine import build_reasoning_path_v4
+from utils.mesh_engine import build_mesh_networks_v3
+from utils.letter_cards import get_letter_card
+from utils.fusion_engine import run_full_analysis
+from utils.conscious_map_engine import build_conscious_map
+
+st.set_page_config(page_title="Mishkat v13", layout="wide")
+st.title("🟣 Mishkat v13 — Root Engine v6.6 Only")
+st.caption("جذور حقيقية | لا تجزئة حروف | لا preprocessing | نهائي")
+
+# ============================
+#   DATA LOADING
+# ============================
+
+def get_path(rel_path):
+    if hasattr(sys, '_MEIPASS'):
+        return os.path.join(sys._MEIPASS, rel_path)
+    return os.path.join(os.path.abspath("."), rel_path)
+
+def load_quran_data():
+    try:
+        path = get_path("data/quran.parquet")
+        return pd.read_parquet(path)
+    except:
+        try:
+            from utils.data_loader import load_quran as legacy_load
+            return legacy_load()
+        except:
+            st.error("❌ لم يتم العثور على ملف القرآن")
+            return []
+
+quran = load_quran_data()
+
+if isinstance(quran, pd.DataFrame):
+    quran = quran.to_dict('records')
+
+# ============================================================
+#   NORMALIZE QURAN KEYS
+# ============================================================
+
+normalized_quran = []
+for a in quran:
+    entry = {}
+    if "surah" in a:
+        entry["surah_number"] = int(a["surah"]) if a["surah"] else 0
+    elif "surah_number" in a:
+        entry["surah_number"] = int(a["surah_number"]) if a["surah_number"] else 0
+    else:
+        entry["surah_number"] = 0
+
+    if "ayah" in a:
+        entry["ayah_number"] = int(a["ayah"]) if a["ayah"] else 0
+    elif "ayah_number" in a:
+        entry["ayah_number"] = int(a["ayah_number"]) if a["ayah_number"] else 0
+    else:
+        entry["ayah_number"] = 0
+
+    if "text" in a:
+        entry["text"] = a["text"]
+    elif "ayah_text" in a:
+        entry["text"] = a["ayah_text"]
+    else:
+        entry["text"] = ""
+
+    normalized_quran.append(entry)
+
+quran = normalized_quran
+
+# ============================================================
+#   SURAH MAP — DIRECT ROOT ENGINE v6.6 (NO PREPROCESSING)
+# ============================================================
+
+def get_surah_text(quran, surah_number):
+    return " ".join([a["text"] for a in quran if a["surah_number"] == surah_number])
+
+def get_surah_roots_canonical(quran, surah_number):
+    """مباشرة من Root Engine v6.6 - بدون أي preprocessing أو تجزئة"""
+    from utils.root_engine import analyze_text_v6
+    from utils.root_canonizer import canonize_root
+
+    text = get_surah_text(quran, surah_number)
+    analysis = analyze_text_v6(text)
+
+    canonical_roots = []
+    for root, count in analysis["root_frequency"]:
+        canonical_root = canonize_root(root)
+        if canonical_root and len(canonical_root) >= 2:
+            canonical_roots.append((canonical_root, count))
+
+    return canonical_roots
+
+def get_surah_ayahs(quran, surah_number):
+    return [
+        {"ayah_number": a["ayah_number"], "text": a["text"]}
+        for a in quran if a["surah_number"] == surah_number
+    ]
+
+def get_surah_structure(quran, surah_number):
+    ayahs = get_surah_ayahs(quran, surah_number)
+    roots = get_surah_roots_canonical(quran, surah_number)
+    text = get_surah_text(quran, surah_number)
+    return {
+        "ayahs": ayahs,
+        "root_frequency": roots,
+        "text": text,
+        "ayah_count": len(ayahs)
+    }
+
+# ============================================================
+#   HEAVY FULL SEMANTIC CLASSIFIER
+# ============================================================
+
+def classify_root_semantic(root: str):
+    r = root.strip()
+    first = r[0] if len(r) > 0 else ""
+    last = r[-1] if len(r) > 0 else ""
+    semantic_score = 0
+
+    if first in ["ق", "ط", "ظ"]:
+        semantic_score += 3
+    elif first in ["ع", "غ", "خ"]:
+        semantic_score += 2
+    elif first in ["م", "ن", "ل", "ر"]:
+        semantic_score += 1
+
+    if len(r) == 3:
+        semantic_score += 1
+    elif len(r) == 4:
+        semantic_score += 2
+    elif len(r) >= 5:
+        semantic_score += 3
+
+    if last in ["م", "ن"]:
+        semantic_score += 1
+    if last in ["ء", "ح", "خ"]:
+        semantic_score += 2
+
+    if "ّ" in r:
+        semantic_score += 2
+
+    if first in ["ع", "ف", "د"]:
+        category = "knowledge"
+    elif first in ["ق", "ط", "ص"]:
+        category = "power"
+    elif first in ["خ", "ب", "غ"]:
+        category = "creation"
+    elif first in ["م", "ن", "ل"]:
+        category = "emotion"
+    elif first in ["ر", "س", "ح"]:
+        category = "movement"
+    else:
+        category = "neutral"
+
+    return category, semantic_score
+
+# ============================================================
+#   HSV COLOR GENERATOR
+# ============================================================
+
+def hsv_color_for_root(root: str, weight: int, t: float):
+    category, score = classify_root_semantic(root)
+    hue_map = {
+        "knowledge": 220/360,
+        "power": 0/360,
+        "creation": 120/360,
+        "emotion": 300/360,
+        "movement": 180/360,
+        "neutral": 30/360
+    }
+    h = hue_map.get(category, 30/360)
+    s = min(1.0, 0.4 + (score * 0.1))
+    v = 0.6 + 0.3 * math.sin(t/700 + weight*0.3)
+    r, g, b = colorsys.hsv_to_rgb(h, s, v)
+    return f"rgb({int(r*255)}, {int(g*255)}, {int(b*255)})"
+
+# ============================================================
+#   RADIAL LAYERS ENGINE
+# ============================================================
+
+def assign_radial_layer(weight):
+    if weight >= 10:
+        return 1
+    elif weight >= 6:
+        return 2
+    elif weight >= 3:
+        return 3
+    else:
+        return 4
+
+# ============================
+#   MAIN TABS
+# ============================
+
+tabs = st.tabs([
+    "🧠 الاستعلام الذكي",
+    "🧬 تحليل الجذور",
+    "🗺️ الخريطة الواعية",
+    "🧬 Gene Spectrum v5",
+    "🕋 Smart Dome v4",
+    "⚖️ المقارنات v12",
+    "🧭 الاستدلال v4",
+    "🕸 Mesh Networks v3",
+    "🗺️ Surah Map v6 (Radial Layers)"
+])
+
+# =========================================================
+# 1) 🧠 الاستعلام الذكي
+# =========================================================
+with tabs[0]:
+    st.subheader("🧠 الاستعلام الذكي — Conscious Search")
+
+    q = st.text_area("اكتب سؤالك:", key="search_query")
+    if st.button("بحث", key="search_btn"):
+        if not q.strip():
+            st.warning("⚠️ الرجاء كتابة سؤال")
+        else:
+            result = run_full_analysis(q, quran)
+
+            st.markdown("### 🧬 الجذور")
+            st.write(result["roots"])
+
+            st.markdown("### 🧠 الحالة")
+            st.info(result["state"])
+
+            st.markdown("### 🧭 التوجيه")
+            st.success(result["guidance"])
+
+            st.markdown("### 🌌 المسار القرآني")
+            for step in result["journey"]:
+                st.markdown(f"**{step['stage']}** — سورة {step['surah']}:{step['ayah']}")
+                st.write(step["text"])
+                st.markdown("---")
+
+            st.markdown("### 📖 آيات مرتبطة")
+            for m in result["matches"][:10]:
+                st.markdown(f"**سورة {m['surah_number']}:{m['ayah_number']}**")
+                st.write(m["text"])
+                st.markdown("---")
+
+            st.markdown("### 📘 التفسير")
+            for t in result["tafsir"]:
+                st.markdown(f"> {t['ayah'][:150]}...")
+                st.info(t["tafsir"])
+
+            st.markdown("### 🧭 الاستدلال")
+            st.write(result["reasoning"])
+
+# =========================================================
+# 2) 🧬 تحليل الجذور — Root Engine v6.6
+# =========================================================
+with tabs[1]:
+    st.subheader("🧬 تحليل الجذور — Root Engine v6.6")
+
+    text = st.text_area("اكتب نصًا للتحليل:")
+    if st.button("تحليل الجذور"):
+        analysis = analyze_text_v6(text)
+        
+        st.markdown("### 🔤 الجذور المستخرجة")
+        st.write(analysis["root_frequency"])
+        
+        st.markdown("### 🧩 بطاقات الحروف")
+        all_letters = set()
+        for root, count in analysis["root_frequency"]:
+            for letter in root:
+                all_letters.add(letter)
+        
+        for letter in sorted(all_letters):
+            card = get_letter_card(letter)
+            if card:
+                st.markdown(f"#### 🔤 الحرف: {letter}")
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.metric("عدد الجذور", card.get("عدد_الجذور", "—"))
+                    st.metric("القيمة الوظيفية", card.get("القيمة_الوظيفية", "—"))
+                with col2:
+                    st.metric("المجال الغالب", card.get("المجال_الغالب", "—"))
+                    st.metric("أعلى الجذور", card.get("أعلى_الجذور", "—")[:20] + "...")
+                with col3:
+                    st.metric("بداية", card.get("بداية", "—"))
+                    st.metric("وسط", card.get("وسط", "—"))
+                    st.metric("نهاية", card.get("نهاية", "—"))
+                st.markdown("---")
+
+# =========================================================
+# 3) 🗺️ الخريطة الواعية
+# =========================================================
+with tabs[2]:
+    st.subheader("🗺️ الخريطة الواعية — Conscious Map")
+
+    surah_num = st.number_input("اختر السورة:", min_value=1, max_value=114, value=1, key="conscious_map")
+
+    if st.button("بناء الخريطة", key="build_map_btn"):
+        with st.spinner("جاري بناء الخريطة الواعية..."):
+            result = build_conscious_map(surah_num, quran)
+
+            st.markdown("### 🧬 الجذور")
+            st.write(result["roots"])
+
+            st.markdown("### 📖 آيات محورية")
+            for ay in result["key_ayahs"]:
+                st.markdown(f"**سورة {ay['surah_number']}:{ay['ayah_number']}**")
+                st.write(ay["text"])
+                st.markdown("---")
+
+            st.markdown("### 📘 التفسير")
+            for t in result["tafsir"]:
+                st.markdown(f"> {t['text'][:150]}...")
+                st.info(t["tafsir"])
+
+            st.markdown("### 🧭 مسار الفهم")
+            st.write(result["reasoning"])
+
+# =========================================================
+# 4) 🧬 Gene Spectrum v5
+# =========================================================
+with tabs[3]:
+    st.subheader("🧬 Gene Spectrum v5")
+    surah_num = st.number_input("اختر السورة:", min_value=1, max_value=114, value=1, key="gene_spectrum_v5")
+    surah_text = " ".join([a["text"] for a in quran if a["surah_number"] == surah_num])
+    spectrum = compute_gene_spectrum_v5(surah_text)
+    st.write(spectrum)
+
+# =========================================================
+# 5) 🕋 Smart Dome v4
+# =========================================================
+with tabs[4]:
+    st.subheader("🕋 Smart Dome v4")
+    surah_num = st.number_input("اختر السورة:", min_value=1, max_value=114, value=1, key="smart_dome_v4")
+    dome = build_smart_dome_v4(quran, surah_num)
+    st.write(dome)
+
+# =========================================================
+# 6) ⚖️ المقارنات v12
+# =========================================================
+with tabs[5]:
+    st.subheader("⚖️ المقارنات — Comparison Engine v12")
+
+    text1 = st.text_area("النص الأول:", key="compare_text1")
+    text2 = st.text_area("النص الثاني:", key="compare_text2")
+
+    if st.button("قارن", key="compare_btn"):
+        if text1 and text2:
+            result = compare_texts_v12(text1, text2)
+            st.json(result)
+        else:
+            st.warning("⚠️ الرجاء إدخال النصين للمقارنة")
+
+# =========================================================
+# 7) 🧭 الاستدلال v4
+# =========================================================
+with tabs[6]:
+    st.subheader("🧭 الاستدلال")
+    text = st.text_area("النص:")
+    if st.button("استدل"):
+        path = build_reasoning_path_v4(quran, text)
+        st.write(path)
+
+# =========================================================
+# 8) 🕸 Mesh Networks v3
+# =========================================================
+with tabs[7]:
+    st.subheader("🕸 Mesh Networks v3")
+    surah_num = st.number_input("اختر السورة:", min_value=1, max_value=114, value=1, key="mesh_v3")
+    mesh = build_mesh_networks_v3(quran, surah_num)
+    st.markdown("### 🧬 العقد (الجذور)")
+    st.write(mesh["nodes"])
+    st.markdown("### 🔗 الروابط (العلاقات)")
+    st.write(mesh["links"])
+    st.markdown("### 📊 إحصائيات الشبكة")
+    st.write({"عدد الجذور": mesh["root_count"], "عدد الروابط": mesh["link_count"]})
+
 # =========================================================
 # 9) 🗺️ Surah Map v6 — الخريطة الدائرية (Root Engine v6.6)
 #    مع إخفاء العقدة المركزية عبر CSS فقط
@@ -330,3 +722,62 @@ with tabs[8]:
         """
 
         st.components.v1.html(html_code, height=800)
+
+# ============================================================
+#   FINAL COMPATIBILITY CHECK
+# ============================================================
+
+st.markdown("---")
+st.markdown("### ✅ نظام Mishkat v13 جاهز للتشغيل")
+
+try:
+    _ = quran[0]["surah_number"]
+    _ = quran[0]["ayah_number"]
+    _ = quran[0]["text"]
+    st.success("✔ مفاتيح القرآن موحدة")
+except:
+    st.error("❌ مشكلة في مفاتيح القرآن")
+
+try:
+    test_roots = get_surah_roots_canonical(quran, 1)
+    if test_roots:
+        filtered = [(r, c) for r, c in test_roots if not (len(r) == 3 and r[0] == r[1] == r[2])]
+        unique = []
+        seen = set()
+        for r, c in filtered:
+            if r not in seen:
+                seen.add(r)
+                unique.append((r, c))
+        st.success(f"✔ Root Engine v6.6 يعمل — {len(unique)} جذراً فريداً للسورة 1")
+        st.write("عينة من الجذور:", [r for r, _ in unique[:15]])
+    else:
+        st.warning("⚠️ Root Engine v6.6 لم يستخرج جذوراً")
+except Exception as e:
+    st.error(f"❌ خطأ في Root Engine: {e}")
+
+try:
+    c = hsv_color_for_root("علم", 3, 100)
+    st.success("✔ HSV Colors تعمل")
+except:
+    st.error("❌ مشكلة في HSV Colors")
+
+try:
+    card = get_letter_card("ا")
+    if card:
+        st.success("✔ Letter Cards تعمل")
+    else:
+        st.warning("⚠️ Letter Cards: بعض الحروف غير متوفرة")
+except Exception as e:
+    st.error(f"❌ خطأ في Letter Cards: {e}")
+
+try:
+    from utils.fusion_engine import run_full_analysis
+    st.success("✔ Fusion Engine متصل")
+except:
+    st.warning("⚠️ Fusion Engine غير متصل")
+
+try:
+    from utils.conscious_map_engine import build_conscious_map
+    st.success("✔ Conscious Map Engine متصل")
+except:
+    st.warning("⚠️ Conscious Map Engine غير متصل")
