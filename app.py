@@ -1,7 +1,7 @@
 # ============================
 #   Mishkat v13 — Root Engine v6.6 Only
 #   NO syllable splitting, NO preprocessing, NO semantic_engine
-#   Final version — guaranteed to work
+#   Final Sovereign Version
 # ============================
 
 import streamlit as st
@@ -27,7 +27,7 @@ from utils.conscious_map_engine import build_conscious_map
 
 st.set_page_config(page_title="Mishkat v13", layout="wide")
 st.title("🟣 Mishkat v13 — Root Engine v6.6 Only")
-st.caption("جذور حقيقية | لا تجزئة حروف | لا preprocessing | نهائي")
+st.caption("جذور حقيقية | لا تجزئة حروف | لا preprocessing | النسخة السيادية")
 
 # ============================
 #   DATA LOADING
@@ -88,14 +88,14 @@ for a in quran:
 quran = normalized_quran
 
 # ============================================================
-#   SURAH MAP — DIRECT ROOT ENGINE v6.6 (NO PREPROCESSING)
+#   SURAH MAP — DIRECT ROOT ENGINE v6.6 (NO FALLBACK)
 # ============================================================
 
 def get_surah_text(quran, surah_number):
     return " ".join([a["text"] for a in quran if a["surah_number"] == surah_number])
 
 def get_surah_roots_canonical(quran, surah_number):
-    """مباشرة من Root Engine v6.6 - بدون أي preprocessing أو تجزئة"""
+    """مباشرة من Root Engine v6.6 - لا fallback، لا تجزئة"""
     from utils.root_engine import analyze_text_v6
     from utils.root_canonizer import canonize_root
 
@@ -392,17 +392,14 @@ with tabs[7]:
 
 # =========================================================
 # 9) 🗺️ Surah Map v6 — الخريطة الدائرية (Root Engine v6.6)
-#    مع إخفاء العقدة المركزية عبر CSS فقط
-#    بدون fallback، بدون تجزئة، بدون حذف من JSON
+#    النسخة السيادية النهائية
 # =========================================================
 with tabs[8]:
     st.subheader("🗺️ Surah Map v6 — الخريطة الدائرية (Root Engine v6.6)")
 
     surah_number = st.number_input("اختر رقم السورة:", min_value=1, max_value=114, value=1, key="surah_map_v6_radial")
 
-    # ============================================================
     # الربط المباشر بـ get_surah_roots_canonical - لا fallback
-    # ============================================================
     currentSurahRoots = get_surah_roots_canonical(quran, surah_number)
 
     def is_center_node(root):
@@ -414,7 +411,7 @@ with tabs[8]:
         return False
 
     def build_roots_json(t):
-        """بناء JSON للجذور - بدون حذف، فقط تصفية للعرض"""
+        """بناء JSON للجذور - مع منع التكرار والحفاظ على العقدة المركزية في JSON"""
         roots_list = []
         seen = set()
         
@@ -435,9 +432,6 @@ with tabs[8]:
                 else:
                     domains.append("عام")
             
-            # إضافة علامة للعقدة المركزية لتخفيفها في CSS
-            is_center = is_center_node(r)
-            
             roots_list.append({
                 "root": r,
                 "weight": c,
@@ -445,14 +439,14 @@ with tabs[8]:
                 "layer": layer,
                 "letters": "، ".join(letters),
                 "domains": "، ".join(domains[:3]),
-                "isCenter": is_center
+                "isCenter": is_center_node(r)
             })
         return json.dumps(roots_list)
 
     if not currentSurahRoots:
         st.warning("⚠️ لم يتم العثور على جذور لهذه السورة")
     else:
-        # إحصاء الجذور الفريدة (للعرض فقط)
+        # إحصاء الجذور الفريدة (للعرض فقط، مع تجاهل العقدة المركزية)
         unique_roots = []
         seen_names = set()
         for r, c in currentSurahRoots:
@@ -668,9 +662,9 @@ with tabs[8]:
             const roots = getRoots();
 
             roots.forEach((r, idx) => {
-              // العقدة المركزية: اجعلها شفافة تماماً
+              // العقدة المركزية: لا ترسمها إطلاقاً (شفافة بالكامل)
               if (r.isCenter) {
-                return; // لا ترسمها إطلاقاً
+                return;
               }
               
               const angle = r.angle + baseRotation;
@@ -741,11 +735,10 @@ except:
 try:
     test_roots = get_surah_roots_canonical(quran, 1)
     if test_roots:
-        filtered = [(r, c) for r, c in test_roots if not (len(r) == 3 and r[0] == r[1] == r[2])]
         unique = []
         seen = set()
-        for r, c in filtered:
-            if r not in seen:
+        for r, c in test_roots:
+            if r not in seen and not (len(r) == 3 and r[0] == r[1] == r[2]):
                 seen.add(r)
                 unique.append((r, c))
         st.success(f"✔ Root Engine v6.6 يعمل — {len(unique)} جذراً فريداً للسورة 1")
