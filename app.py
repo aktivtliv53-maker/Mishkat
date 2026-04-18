@@ -1,6 +1,6 @@
 # ============================
 #   Mishkat v13 — Root Engine v6.6 Only
-#   No syllable splitting, No v5, No semantic_engine
+#   No syllable splitting, No preprocessing, No semantic_engine
 # ============================
 
 import streamlit as st
@@ -15,12 +15,6 @@ import pandas as pd
 from utils.data_loader import load_quran
 from utils.root_engine import analyze_text_v6
 from utils.comparison_engine import compare_texts_v12
-from utils.surah_map_engine import (
-    get_surah_roots_v6,
-    get_surah_stats_v6,
-    get_surah_signature_v6,
-    get_surah_links_v6
-)
 from utils.root_canonizer import canonize_root
 from utils.gene_spectrum_engine import compute_gene_spectrum_v5
 from utils.smart_dome_engine import build_smart_dome_v4
@@ -32,7 +26,7 @@ from utils.conscious_map_engine import build_conscious_map
 
 st.set_page_config(page_title="Mishkat v13", layout="wide")
 st.title("🟣 Mishkat v13 — Root Engine v6.6 Only")
-st.caption("جذور حقيقية | لا تجزئة حروف | لا syllable splitting")
+st.caption("جذور حقيقية | لا تجزئة حروف | لا preprocessing")
 
 # ============================
 #   DATA LOADING
@@ -93,14 +87,14 @@ for a in quran:
 quran = normalized_quran
 
 # ============================================================
-#   SURAH MAP v6 — ROOT ENGINE v6.6 ONLY
+#   SURAH MAP — ROOT ENGINE v6.6 ONLY (NO PREPROCESSING)
 # ============================================================
 
 def get_surah_text(quran, surah_number):
     return " ".join([a["text"] for a in quran if a["surah_number"] == surah_number])
 
 def get_surah_roots_canonical(quran, surah_number):
-    """استخراج الجذور باستخدام Root Engine v6.6 فقط - لا تجزئة حروف"""
+    """استخراج الجذور مباشرة من Root Engine v6.6 - بدون أي preprocessing"""
     from utils.root_engine import analyze_text_v6
     from utils.root_canonizer import canonize_root
 
