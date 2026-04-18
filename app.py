@@ -41,10 +41,8 @@ st.caption("تحليل دلالي | توجيه ذكي | آية مختارة | ت
 # ============================
 
 def get_path(rel_path):
-    # دعم PyInstaller EXE
     if hasattr(sys, '_MEIPASS'):
         return os.path.join(sys._MEIPASS, rel_path)
-    # دعم التشغيل المحلي
     return os.path.join(os.path.abspath("."), rel_path)
 
 def load_quran_data():
@@ -52,7 +50,6 @@ def load_quran_data():
         path = get_path("data/quran.parquet")
         return pd.read_parquet(path)
     except:
-        # إذا لم يوجد parquet، جرب csv أو json
         try:
             from utils.data_loader import load_quran as legacy_load
             return legacy_load()
@@ -62,7 +59,6 @@ def load_quran_data():
 
 quran = load_quran_data()
 
-# إذا كان quran من pandas DataFrame، حوله إلى قائمة
 if isinstance(quran, pd.DataFrame):
     quran = quran.to_dict('records')
 
@@ -106,7 +102,6 @@ def get_surah_text(quran, surah_number):
     return " ".join([a["text"] for a in quran if a["surah_number"] == surah_number])
 
 def get_surah_roots_canonical(quran, surah_number):
-    """استخراج الجذور باستخدام Root Engine v5.3 مع التوحيد"""
     text = get_surah_text(quran, surah_number)
     analysis = analyze_text_v5(text)
     canonical_roots = []
@@ -231,7 +226,7 @@ tabs = st.tabs([
 ])
 
 # =========================================================
-# 1) 🧠 الاستعلام الذكي — مع Fusion Engine v2
+# 1) 🧠 الاستعلام الذكي
 # =========================================================
 with tabs[0]:
     st.subheader("🧠 الاستعلام الذكي — Conscious Search")
@@ -308,7 +303,7 @@ with tabs[1]:
                 st.markdown("---")
 
 # =========================================================
-# 3) 🗺️ الخريطة الواعية — Conscious Map
+# 3) 🗺️ الخريطة الواعية
 # =========================================================
 with tabs[2]:
     st.subheader("🗺️ الخريطة الواعية — Conscious Map")
@@ -391,7 +386,7 @@ with tabs[7]:
     st.write({"عدد الجذور": mesh["root_count"], "عدد الروابط": mesh["link_count"]})
 
 # =========================================================
-# 9) 🗺️ Surah Map v6 (Radial Layers) — Responsive Canvas
+# 9) 🗺️ Surah Map v6 — الخريطة الدائرية التفاعلية
 # =========================================================
 with tabs[8]:
     st.subheader("🗺️ Surah Map v6 — الخريطة الدائرية (Root Engine v5.3)")
@@ -430,23 +425,32 @@ with tabs[8]:
 
         # ============================
         #   SECTION 3 — RADIAL ROOT MAP
-        #   (Responsive Canvas + Scaling)
+        #   (Interactive: Zoom, Pan, Hover, Tooltip, Pinch)
         # ============================
 
         html_code = """
         <div style="width:100%; display:flex; justify-content:center;">
-          <canvas id="surahRadialMap"
-                  style="width:100%; max-width:700px; aspect-ratio:1/1;
-                         background:#05060a; border-radius:50%;">
-          </canvas>
+          <div style="position:relative; width:100%; max-width:700px;">
+            <canvas id="surahRadialMap"
+                    style="width:100%; aspect-ratio:1/1;
+                           background:#05060a; border-radius:50%; display:block;">
+            </canvas>
+            <div id="rootTooltip"
+                 style="position:absolute; padding:6px 10px; background:rgba(15,23,42,0.95);
+                        color:#e5e7eb; border-radius:6px; font-size:12px; pointer-events:none;
+                        border:1px solid #4b5563; display:none; z-index:10;">
+            </div>
+          </div>
         </div>
 
         <script>
         (function () {
           const canvas = document.getElementById('surahRadialMap');
+          const tooltip = document.getElementById('rootTooltip');
+          if (!canvas) return;
 
           function resizeCanvas() {
-            const size = Math.min(window.innerWidth * 0.9, 700);
+            const size = canvas.clientWidth;
             canvas.width = size;
             canvas.height = size;
           }
@@ -455,20 +459,175 @@ with tabs[8]:
 
           const ctx = canvas.getContext('2d');
 
+          let scale = 1;
+          let offsetX = 0;
+          let offsetY = 0;
+
+          let isDragging = false;
+          let lastX = 0;
+          let lastY = 0;
+
+          let lastTouchDistance = null;
+          let lastTap = 0;
+
+          let hoverRoot = null;
+          let baseRotation = 0;
+
+          function getRoots() {
+            const raw = window.currentRoots || [];
+            return raw.map((r, i) => ({
+              root: r.root || r,
+              weight: r.weight || 1,
+              angle: (2 * Math.PI * i) / Math.max(1, raw.length)
+            }));
+          }
+
+          function getRootAtPosition(x, y, roots, CX, CY, baseRadius, scaleLocal) {
+            for (let i = 0; i < roots.length; i++) {
+              const r = roots[i];
+              const angle = r.angle + baseRotation;
+              const dynamicRadius = baseRadius + 60*scaleLocal + r.weight*25*scaleLocal;
+              const rx = CX + dynamicRadius * Math.cos(angle);
+              const ry = CY + dynamicRadius * Math.sin(angle);
+              const dist = Math.sqrt((x - rx)**2 + (y - ry)**2);
+              if (dist < 18 * scaleLocal) return { r, rx, ry };
+            }
+            return null;
+          }
+
+          function screenToWorld(clientX, clientY) {
+            const rect = canvas.getBoundingClientRect();
+            const x = (clientX - rect.left - offsetX) / scale;
+            const y = (clientY - rect.top - offsetY) / scale;
+            return { x, y };
+          }
+
+          canvas.addEventListener('mousedown', (e) => {
+            isDragging = true;
+            lastX = e.clientX;
+            lastY = e.clientY;
+          });
+
+          canvas.addEventListener('mousemove', (e) => {
+            if (isDragging) {
+              offsetX += (e.clientX - lastX);
+              offsetY += (e.clientY - lastY);
+              lastX = e.clientX;
+              lastY = e.clientY;
+              tooltip.style.display = 'none';
+              hoverRoot = null;
+            } else {
+              const { x, y } = screenToWorld(e.clientX, e.clientY);
+              const W = canvas.width;
+              const CX = W / 2;
+              const CY = W / 2;
+              const baseRadius = W * 0.17;
+              const roots = getRoots();
+              const hit = getRootAtPosition(x, y, roots, CX, CY, baseRadius, 1);
+              if (hit) {
+                hoverRoot = hit;
+                tooltip.style.display = 'block';
+                tooltip.innerHTML = 'الجذر: ' + hit.r.root + '<br>الوزن: ' + hit.r.weight;
+                tooltip.style.left = (e.clientX - canvas.getBoundingClientRect().left + 10) + 'px';
+                tooltip.style.top = (e.clientY - canvas.getBoundingClientRect().top - 10) + 'px';
+              } else {
+                hoverRoot = null;
+                tooltip.style.display = 'none';
+              }
+            }
+          });
+
+          canvas.addEventListener('mouseup', () => { isDragging = false; });
+          canvas.addEventListener('mouseleave', () => { isDragging = false; });
+
+          canvas.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            const delta = -e.deltaY * 0.001;
+            const oldScale = scale;
+            scale += delta;
+            scale = Math.max(0.4, Math.min(scale, 3));
+
+            const rect = canvas.getBoundingClientRect();
+            const cx = e.clientX - rect.left;
+            const cy = e.clientY - rect.top;
+
+            offsetX = cx - (cx - offsetX) * (scale / oldScale);
+            offsetY = cy - (cy - offsetY) * (scale / oldScale);
+          }, { passive: false });
+
+          canvas.addEventListener('touchstart', (e) => {
+            const now = Date.now();
+            if (now - lastTap < 300) {
+              scale *= 1.3;
+              scale = Math.min(scale, 3);
+            }
+            lastTap = now;
+
+            if (e.touches.length === 1) {
+              isDragging = true;
+              lastX = e.touches[0].clientX;
+              lastY = e.touches[0].clientY;
+            }
+          });
+
+          canvas.addEventListener('touchmove', (e) => {
+            if (e.touches.length === 1 && isDragging) {
+              const t = e.touches[0];
+              offsetX += (t.clientX - lastX);
+              offsetY += (t.clientY - lastY);
+              lastX = t.clientX;
+              lastY = t.clientY;
+              tooltip.style.display = 'none';
+              hoverRoot = null;
+            } else if (e.touches.length === 2) {
+              const dx = e.touches[0].clientX - e.touches[1].clientX;
+              const dy = e.touches[0].clientY - e.touches[1].clientY;
+              const dist = Math.sqrt(dx*dx + dy*dy);
+
+              if (lastTouchDistance) {
+                const delta = dist - lastTouchDistance;
+                scale += delta * 0.002;
+                scale = Math.max(0.4, Math.min(scale, 3));
+              }
+              lastTouchDistance = dist;
+            }
+          }, { passive: false });
+
+          canvas.addEventListener('touchend', () => {
+            isDragging = false;
+            lastTouchDistance = null;
+          });
+
+          canvas.addEventListener('click', (e) => {
+            const { x, y } = screenToWorld(e.clientX, e.clientY);
+            const W = canvas.width;
+            const CX = W / 2;
+            const CY = W / 2;
+            const baseRadius = W * 0.17;
+            const roots = getRoots();
+            const hit = getRootAtPosition(x, y, roots, CX, CY, baseRadius, 1);
+            if (hit) {
+              tooltip.style.display = 'block';
+              tooltip.innerHTML = 'الجذر: ' + hit.r.root + '<br>الوزن: ' + hit.r.weight;
+              const rect = canvas.getBoundingClientRect();
+              tooltip.style.left = (e.clientX - rect.left + 10) + 'px';
+              tooltip.style.top = (e.clientY - rect.top - 10) + 'px';
+            }
+          });
+
           function drawFrame(t) {
             const W = canvas.width;
             const H = canvas.height;
             const CX = W / 2;
             const CY = H / 2;
 
-            const scale = W / 700;
+            const baseRadius = W * 0.17;
+            const maxRadius = W * 0.40;
 
-            const baseRadius = 120 * scale;
-            const maxRadius = 280 * scale;
+            ctx.setTransform(scale, 0, 0, scale, offsetX, offsetY);
+            ctx.clearRect(-offsetX/scale, -offsetY/scale, W/scale, H/scale);
 
-            ctx.clearRect(0, 0, W, H);
-
-            const grd = ctx.createRadialGradient(CX, CY, 50 * scale, CX, CY, maxRadius);
+            const grd = ctx.createRadialGradient(CX, CY, W * 0.05, CX, CY, maxRadius);
             grd.addColorStop(0, '#111827');
             grd.addColorStop(1, '#020617');
             ctx.fillStyle = grd;
@@ -477,55 +636,63 @@ with tabs[8]:
             ctx.fill();
 
             ctx.strokeStyle = '#22c55e';
-            ctx.lineWidth = 1.2 * scale;
+            ctx.lineWidth = W * 0.002;
             ctx.beginPath();
             ctx.arc(CX, CY, baseRadius, 0, 2 * Math.PI);
             ctx.stroke();
 
-            const pulse = 8 * scale * Math.sin(t / 800);
+            const pulse = (W * 0.01) * Math.sin(t / 800);
             ctx.strokeStyle = 'rgba(34,197,94,0.4)';
             ctx.beginPath();
             ctx.arc(CX, CY, baseRadius + pulse, 0, 2 * Math.PI);
             ctx.stroke();
 
-            const roots = window.currentRoots || [];
+            baseRotation += 0.0002;
+
+            const roots = getRoots();
 
             roots.forEach((r, idx) => {
-              const angle = (2 * Math.PI * idx) / roots.length;
-              const dynamicRadius = baseRadius + 60 * scale + r.weight * 25 * scale
-                                    + 10 * scale * Math.sin(t / 600 + idx);
+              const angle = r.angle + baseRotation;
+              const dynamicRadius = baseRadius + (W * 0.08) + r.weight * (W * 0.03)
+                                    + (W * 0.01) * Math.sin(t / 600 + idx);
 
               const x = CX + dynamicRadius * Math.cos(angle);
               const y = CY + dynamicRadius * Math.sin(angle);
 
-              ctx.strokeStyle = r.color || 'rgba(96,165,250,0.5)';
-              ctx.lineWidth = 0.8 * scale;
+              ctx.strokeStyle = 'rgba(96,165,250,0.5)';
+              ctx.lineWidth = W * 0.0015;
               ctx.beginPath();
               ctx.moveTo(CX, CY);
               ctx.lineTo(x, y);
               ctx.stroke();
 
-              const nodeRadius = (6 + r.weight * 1.5) * scale;
-              ctx.fillStyle = r.color || '#f97316';
+              const nodeRadius = (W * 0.008) + r.weight * (W * 0.002);
+
+              if (hoverRoot && hoverRoot.r === r) {
+                ctx.fillStyle = '#facc15';
+              } else {
+                ctx.fillStyle = '#f97316';
+              }
+
               ctx.beginPath();
               ctx.arc(x, y, nodeRadius, 0, 2 * Math.PI);
               ctx.fill();
 
               ctx.strokeStyle = 'rgba(249,115,22,0.4)';
               ctx.beginPath();
-              ctx.arc(x, y, nodeRadius + 4 * scale * Math.sin(t / 700 + idx), 0, 2 * Math.PI);
+              ctx.arc(x, y, nodeRadius + (W * 0.005) * Math.sin(t / 700 + idx), 0, 2 * Math.PI);
               ctx.stroke();
 
               ctx.fillStyle = '#e5e7eb';
-              ctx.font = (12 * scale) + 'px sans-serif';
+              ctx.font = (W * 0.02) + 'px sans-serif';
               ctx.textAlign = x >= CX ? 'left' : 'right';
-              ctx.fillText(r.root, x + (x >= CX ? 8 * scale : -8 * scale), y - 4 * scale);
+              ctx.fillText(r.root, x + (x >= CX ? W * 0.015 : -W * 0.015), y - W * 0.01);
             });
 
             ctx.fillStyle = '#a5b4fc';
-            ctx.font = (14 * scale) + 'px sans-serif';
+            ctx.font = (W * 0.03) + 'px sans-serif';
             ctx.textAlign = 'center';
-            ctx.fillText('الخريطة الدائرية للجذور', CX, CY - 6 * scale);
+            ctx.fillText('الخريطة الدائرية للجذور', CX, CY - W * 0.02);
           }
 
           function animate(t) {
@@ -533,18 +700,18 @@ with tabs[8]:
             requestAnimationFrame(animate);
           }
 
-          window.currentRoots = JSON.parse('""" + build_roots_json(0) + """');
-
-          setInterval(() => {
+          function updateRoots() {
             window.currentRoots = JSON.parse('""" + build_roots_json(0) + """');
-          }, 800);
+          }
 
+          updateRoots();
+          setInterval(updateRoots, 800);
           requestAnimationFrame(animate);
         })();
         </script>
         """
 
-        components.html(html_code, height=800)
+        st.components.v1.html(html_code, height=800)
 
 # ============================================================
 #   FINAL COMPATIBILITY CHECK
