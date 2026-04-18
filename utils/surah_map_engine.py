@@ -1,15 +1,14 @@
-# utils/surah_map_engine.py — v11.3 (Surah Map v5)
+# utils/surah_map_engine.py — v12 (Surah Map v6)
 
-from utils.semantic_engine import extract_roots_from_text
+from utils.root_engine import analyze_text_v6
 from utils.root_canonizer import canonize_root
-from utils.root_engine import analyze_text_v5
 
 def get_surah_text(quran, surah_number):
     return " ".join([a["text"] for a in quran if a["surah_number"] == surah_number])
 
-def get_surah_roots_v5(quran, surah_number):
+def get_surah_roots_v6(quran, surah_number):
     text = get_surah_text(quran, surah_number)
-    analysis = analyze_text_v5(text)
+    analysis = analyze_text_v6(text)
 
     freq = {}
     for root, count in analysis["root_frequency"]:
@@ -19,21 +18,21 @@ def get_surah_roots_v5(quran, surah_number):
     freq_sorted = sorted(freq.items(), key=lambda x: x[1], reverse=True)
     return freq_sorted
 
-def get_surah_stats_v5(quran, surah_number):
-    roots = get_surah_roots_v5(quran, surah_number)
+def get_surah_stats_v6(quran, surah_number):
+    roots = get_surah_roots_v6(quran, surah_number)
     return {
         "surah": surah_number,
         "unique_roots": len(roots),
         "root_frequency": roots,
         "top_roots": roots[:20],
-        "status": "Surah Map v5 computed"
+        "status": "Surah Map v6 computed"
     }
 
-def get_surah_signature_v5(quran, surah_number):
-    return get_surah_roots_v5(quran, surah_number)[:10]
+def get_surah_signature_v6(quran, surah_number):
+    return get_surah_roots_v6(quran, surah_number)[:10]
 
-def get_surah_links_v5(quran, surah_number):
-    roots_s = dict(get_surah_roots_v5(quran, surah_number))
+def get_surah_links_v6(quran, surah_number):
+    roots_s = dict(get_surah_roots_v6(quran, surah_number))
     surahs = sorted(set(a["surah_number"] for a in quran))
 
     links = []
@@ -42,7 +41,7 @@ def get_surah_links_v5(quran, surah_number):
         if s == surah_number:
             continue
 
-        roots_other = dict(get_surah_roots_v5(quran, s))
+        roots_other = dict(get_surah_roots_v6(quran, s))
         shared = set(roots_s.keys()) & set(roots_other.keys())
 
         if shared:
