@@ -386,7 +386,7 @@ with tabs[7]:
     st.write({"عدد الجذور": mesh["root_count"], "عدد الروابط": mesh["link_count"]})
 
 # =========================================================
-# 9) 🗺️ Surah Map v6 — الخريطة الدائرية التفاعلية
+# 9) 🗺️ Surah Map v6 — الخريطة الدائرية (Canvas مزدوج الطبقات)
 # =========================================================
 with tabs[8]:
     st.subheader("🗺️ Surah Map v6 — الخريطة الدائرية (Root Engine v5.3)")
@@ -424,92 +424,132 @@ with tabs[8]:
         st.success(f"✅ {len(currentSurahRoots)} جذراً مستخرجاً من Root Engine v5.3")
 
         # ============================
-        #   SECTION 3 — RADIAL ROOT MAP
-        #   (Interactive: Zoom, Pan, Hover, Tooltip, Pinch)
+        #   الخريطة الدائرية — Canvas مزدوج الطبقات
         # ============================
 
         html_code = """
         <div style="width:100%; display:flex; justify-content:center;">
           <div style="position:relative; width:100%; max-width:700px;">
-            <canvas id="surahRadialMap"
+
+            <!-- الطبقة الأولى: الخلفية -->
+            <canvas id="bgCanvas"
                     style="width:100%; aspect-ratio:1/1;
                            background:#05060a; border-radius:50%; display:block;">
             </canvas>
+
+            <!-- الطبقة الثانية: الجذور -->
+            <canvas id="rootCanvas"
+                    style="width:100%; aspect-ratio:1/1;
+                           position:absolute; top:0; left:0; pointer-events:auto;">
+            </canvas>
+
+            <!-- Tooltip -->
             <div id="rootTooltip"
                  style="position:absolute; padding:6px 10px; background:rgba(15,23,42,0.95);
                         color:#e5e7eb; border-radius:6px; font-size:12px; pointer-events:none;
                         border:1px solid #4b5563; display:none; z-index:10;">
             </div>
+
           </div>
         </div>
 
         <script>
         (function () {
-          const canvas = document.getElementById('surahRadialMap');
+
+          const bgCanvas = document.getElementById('bgCanvas');
+          const rootCanvas = document.getElementById('rootCanvas');
           const tooltip = document.getElementById('rootTooltip');
-          if (!canvas) return;
 
-          function resizeCanvas() {
-            const size = canvas.clientWidth;
-            canvas.width = size;
-            canvas.height = size;
+          function resize() {
+            const size = bgCanvas.clientWidth;
+            bgCanvas.width = size;
+            bgCanvas.height = size;
+            rootCanvas.width = size;
+            rootCanvas.height = size;
           }
-          resizeCanvas();
-          window.addEventListener('resize', resizeCanvas);
+          resize();
+          window.addEventListener('resize', resize);
 
-          const ctx = canvas.getContext('2d');
+          const bg = bgCanvas.getContext('2d');
+          const ctx = rootCanvas.getContext('2d');
 
           let scale = 1;
           let offsetX = 0;
           let offsetY = 0;
-
           let isDragging = false;
           let lastX = 0;
           let lastY = 0;
-
           let lastTouchDistance = null;
-          let lastTap = 0;
-
           let hoverRoot = null;
           let baseRotation = 0;
 
+          function drawBackground() {
+            const W = bgCanvas.width;
+            const CX = W / 2;
+            const CY = W / 2;
+            const baseRadius = W * 0.17;
+            const maxRadius = W * 0.40;
+
+            bg.clearRect(0, 0, W, W);
+
+            const grd = bg.createRadialGradient(CX, CY, W * 0.05, CX, CY, maxRadius);
+            grd.addColorStop(0, '#111827');
+            grd.addColorStop(1, '#020617');
+            bg.fillStyle = grd;
+            bg.beginPath();
+            bg.arc(CX, CY, maxRadius, 0, 2 * Math.PI);
+            bg.fill();
+
+            bg.strokeStyle = '#22c55e';
+            bg.lineWidth = W * 0.002;
+            bg.beginPath();
+            bg.arc(CX, CY, baseRadius, 0, 2 * Math.PI);
+            bg.stroke();
+
+            bg.fillStyle = '#a5b4fc';
+            bg.font = (W * 0.03) + 'px sans-serif';
+            bg.textAlign = 'center';
+            bg.fillText('الخريطة الدائرية للجذور', CX, CY - W * 0.02);
+          }
+
+          drawBackground();
+
           function getRoots() {
-            // التعديل الأول: استخدام surahRoots بدلاً من currentRoots
             const raw = window.surahRoots || [];
             return raw.map((r, i) => ({
-              root: r.root || r,
-              weight: r.weight || 1,
+              root: r.root,
+              weight: r.weight,
               angle: (2 * Math.PI * i) / Math.max(1, raw.length)
             }));
           }
 
-          function getRootAtPosition(x, y, roots, CX, CY, baseRadius, scaleLocal) {
-            for (let i = 0; i < roots.length; i++) {
-              const r = roots[i];
-              const angle = r.angle + baseRotation;
-              const dynamicRadius = baseRadius + 60*scaleLocal + r.weight*25*scaleLocal;
-              const rx = CX + dynamicRadius * Math.cos(angle);
-              const ry = CY + dynamicRadius * Math.sin(angle);
-              const dist = Math.sqrt((x - rx)**2 + (y - ry)**2);
-              if (dist < 18 * scaleLocal) return { r, rx, ry };
-            }
-            return null;
-          }
-
           function screenToWorld(clientX, clientY) {
-            const rect = canvas.getBoundingClientRect();
+            const rect = rootCanvas.getBoundingClientRect();
             const x = (clientX - rect.left - offsetX) / scale;
             const y = (clientY - rect.top - offsetY) / scale;
             return { x, y };
           }
 
-          canvas.addEventListener('mousedown', (e) => {
+          function getRootAt(x, y, roots, CX, CY, baseRadius) {
+            for (let i = 0; i < roots.length; i++) {
+              const r = roots[i];
+              const angle = r.angle + baseRotation;
+              const dynamicRadius = baseRadius + 60 + r.weight * 25;
+              const rx = CX + dynamicRadius * Math.cos(angle);
+              const ry = CY + dynamicRadius * Math.sin(angle);
+              const dist = Math.sqrt((x - rx)**2 + (y - ry)**2);
+              if (dist < 20) return { r, rx, ry };
+            }
+            return null;
+          }
+
+          rootCanvas.addEventListener('mousedown', (e) => {
             isDragging = true;
             lastX = e.clientX;
             lastY = e.clientY;
           });
 
-          canvas.addEventListener('mousemove', (e) => {
+          rootCanvas.addEventListener('mousemove', (e) => {
             if (isDragging) {
               offsetX += (e.clientX - lastX);
               offsetY += (e.clientY - lastY);
@@ -519,18 +559,18 @@ with tabs[8]:
               hoverRoot = null;
             } else {
               const { x, y } = screenToWorld(e.clientX, e.clientY);
-              const W = canvas.width;
+              const W = rootCanvas.width;
               const CX = W / 2;
               const CY = W / 2;
               const baseRadius = W * 0.17;
               const roots = getRoots();
-              const hit = getRootAtPosition(x, y, roots, CX, CY, baseRadius, 1);
+              const hit = getRootAt(x, y, roots, CX, CY, baseRadius);
               if (hit) {
                 hoverRoot = hit;
                 tooltip.style.display = 'block';
-                tooltip.innerHTML = 'الجذر: ' + hit.r.root + '<br>الوزن: ' + hit.r.weight;
-                tooltip.style.left = (e.clientX - canvas.getBoundingClientRect().left + 10) + 'px';
-                tooltip.style.top = (e.clientY - canvas.getBoundingClientRect().top - 10) + 'px';
+                tooltip.innerHTML = '<b>' + hit.r.root + '</b><br>الوزن: ' + hit.r.weight;
+                tooltip.style.left = (e.clientX - rootCanvas.getBoundingClientRect().left + 10) + 'px';
+                tooltip.style.top = (e.clientY - rootCanvas.getBoundingClientRect().top - 10) + 'px';
               } else {
                 hoverRoot = null;
                 tooltip.style.display = 'none';
@@ -538,17 +578,17 @@ with tabs[8]:
             }
           });
 
-          canvas.addEventListener('mouseup', () => { isDragging = false; });
-          canvas.addEventListener('mouseleave', () => { isDragging = false; });
+          rootCanvas.addEventListener('mouseup', () => isDragging = false);
+          rootCanvas.addEventListener('mouseleave', () => isDragging = false);
 
-          canvas.addEventListener('wheel', (e) => {
+          rootCanvas.addEventListener('wheel', (e) => {
             e.preventDefault();
             const delta = -e.deltaY * 0.001;
             const oldScale = scale;
             scale += delta;
             scale = Math.max(0.4, Math.min(scale, 3));
 
-            const rect = canvas.getBoundingClientRect();
+            const rect = rootCanvas.getBoundingClientRect();
             const cx = e.clientX - rect.left;
             const cy = e.clientY - rect.top;
 
@@ -556,14 +596,7 @@ with tabs[8]:
             offsetY = cy - (cy - offsetY) * (scale / oldScale);
           }, { passive: false });
 
-          canvas.addEventListener('touchstart', (e) => {
-            const now = Date.now();
-            if (now - lastTap < 300) {
-              scale *= 1.3;
-              scale = Math.min(scale, 3);
-            }
-            lastTap = now;
-
+          rootCanvas.addEventListener('touchstart', (e) => {
             if (e.touches.length === 1) {
               isDragging = true;
               lastX = e.touches[0].clientX;
@@ -571,7 +604,7 @@ with tabs[8]:
             }
           });
 
-          canvas.addEventListener('touchmove', (e) => {
+          rootCanvas.addEventListener('touchmove', (e) => {
             if (e.touches.length === 1 && isDragging) {
               const t = e.touches[0];
               offsetX += (t.clientX - lastX);
@@ -580,73 +613,19 @@ with tabs[8]:
               lastY = t.clientY;
               tooltip.style.display = 'none';
               hoverRoot = null;
-            } else if (e.touches.length === 2) {
-              const dx = e.touches[0].clientX - e.touches[1].clientX;
-              const dy = e.touches[0].clientY - e.touches[1].clientY;
-              const dist = Math.sqrt(dx*dx + dy*dy);
-
-              if (lastTouchDistance) {
-                const delta = dist - lastTouchDistance;
-                scale += delta * 0.002;
-                scale = Math.max(0.4, Math.min(scale, 3));
-              }
-              lastTouchDistance = dist;
             }
-          }, { passive: false });
-
-          canvas.addEventListener('touchend', () => {
-            isDragging = false;
-            lastTouchDistance = null;
           });
 
-          canvas.addEventListener('click', (e) => {
-            const { x, y } = screenToWorld(e.clientX, e.clientY);
-            const W = canvas.width;
+          rootCanvas.addEventListener('touchend', () => isDragging = false);
+
+          function drawRoots(t) {
+            const W = rootCanvas.width;
             const CX = W / 2;
             const CY = W / 2;
             const baseRadius = W * 0.17;
-            const roots = getRoots();
-            const hit = getRootAtPosition(x, y, roots, CX, CY, baseRadius, 1);
-            if (hit) {
-              tooltip.style.display = 'block';
-              tooltip.innerHTML = 'الجذر: ' + hit.r.root + '<br>الوزن: ' + hit.r.weight;
-              const rect = canvas.getBoundingClientRect();
-              tooltip.style.left = (e.clientX - rect.left + 10) + 'px';
-              tooltip.style.top = (e.clientY - rect.top - 10) + 'px';
-            }
-          });
-
-          function drawFrame(t) {
-            const W = canvas.width;
-            const H = canvas.height;
-            const CX = W / 2;
-            const CY = H / 2;
-
-            const baseRadius = W * 0.17;
-            const maxRadius = W * 0.40;
 
             ctx.setTransform(scale, 0, 0, scale, offsetX, offsetY);
-            ctx.clearRect(-offsetX/scale, -offsetY/scale, W/scale, H/scale);
-
-            const grd = ctx.createRadialGradient(CX, CY, W * 0.05, CX, CY, maxRadius);
-            grd.addColorStop(0, '#111827');
-            grd.addColorStop(1, '#020617');
-            ctx.fillStyle = grd;
-            ctx.beginPath();
-            ctx.arc(CX, CY, maxRadius, 0, 2 * Math.PI);
-            ctx.fill();
-
-            ctx.strokeStyle = '#22c55e';
-            ctx.lineWidth = W * 0.002;
-            ctx.beginPath();
-            ctx.arc(CX, CY, baseRadius, 0, 2 * Math.PI);
-            ctx.stroke();
-
-            const pulse = (W * 0.01) * Math.sin(t / 800);
-            ctx.strokeStyle = 'rgba(34,197,94,0.4)';
-            ctx.beginPath();
-            ctx.arc(CX, CY, baseRadius + pulse, 0, 2 * Math.PI);
-            ctx.stroke();
+            ctx.clearRect(-offsetX/scale, -offsetY/scale, W/scale, W/scale);
 
             baseRotation += 0.0002;
 
@@ -654,8 +633,7 @@ with tabs[8]:
 
             roots.forEach((r, idx) => {
               const angle = r.angle + baseRotation;
-              const dynamicRadius = baseRadius + (W * 0.08) + r.weight * (W * 0.03)
-                                    + (W * 0.01) * Math.sin(t / 600 + idx);
+              const dynamicRadius = baseRadius + 60 + r.weight * 25 + 10 * Math.sin(t / 600 + idx);
 
               const x = CX + dynamicRadius * Math.cos(angle);
               const y = CY + dynamicRadius * Math.sin(angle);
@@ -679,30 +657,19 @@ with tabs[8]:
               ctx.arc(x, y, nodeRadius, 0, 2 * Math.PI);
               ctx.fill();
 
-              ctx.strokeStyle = 'rgba(249,115,22,0.4)';
-              ctx.beginPath();
-              ctx.arc(x, y, nodeRadius + (W * 0.005) * Math.sin(t / 700 + idx), 0, 2 * Math.PI);
-              ctx.stroke();
-
               ctx.fillStyle = '#e5e7eb';
               ctx.font = (W * 0.02) + 'px sans-serif';
               ctx.textAlign = x >= CX ? 'left' : 'right';
               ctx.fillText(r.root, x + (x >= CX ? W * 0.015 : -W * 0.015), y - W * 0.01);
             });
-
-            ctx.fillStyle = '#a5b4fc';
-            ctx.font = (W * 0.03) + 'px sans-serif';
-            ctx.textAlign = 'center';
-            ctx.fillText('الخريطة الدائرية للجذور', CX, CY - W * 0.02);
           }
 
           function animate(t) {
-            drawFrame(t || 0);
+            drawRoots(t || 0);
             requestAnimationFrame(animate);
           }
 
           function updateRoots() {
-            // التعديل الثاني: استخدام surahRoots بدلاً من currentRoots
             window.surahRoots = JSON.parse('""" + build_roots_json(0) + """');
           }
 
