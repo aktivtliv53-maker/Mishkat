@@ -1,5 +1,5 @@
 # ============================
-#   Mishkat Root Engine v5.0
+#   Mishkat Root Engine v5.1
 #   (Integrated with Weights Engine)
 # ============================
 
@@ -38,7 +38,7 @@ def extract_root(w: str) -> str:
     # تنظيف أولي
     w = clean_word(w)
 
-    # تطبيق طبقة الأوزان
+    # *** أهم خطوة — طبقة الأوزان ***
     w = normalize_by_weight(w)
 
     # إزالة حروف الزيادة
