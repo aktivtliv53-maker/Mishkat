@@ -1,7 +1,6 @@
 # ============================
-#   Mishkat v12 — Conscious Unified System
-#   Dynamic HSV Colors + Radial Layers Mode + Tooltip + Letter Cards
-#   Root Engine v5.3 — Canonical Roots Only
+#   Mishkat v13 — Conscious Unified System
+#   Root Engine v6.6 — Canonical Roots Only
 #   Fusion Engine v2 + Conscious Map Engine
 # ============================
 
@@ -15,25 +14,21 @@ import sys
 import pandas as pd
 
 from utils.data_loader import load_quran
-from utils.root_engine import analyze_text_v5
+from utils.root_engine import analyze_text_v6
+from utils.comparison_engine import compare_texts_v12
+from utils.surah_map_engine import get_surah_roots_v6, get_surah_stats_v6, get_surah_signature_v6, get_surah_links_v6
 from utils.root_canonizer import canonize_root
-from utils.surah_map_engine import (
-    get_surah_stats_v5,
-    get_surah_signature_v5,
-    get_surah_links_v5
-)
 from utils.gene_spectrum_engine import compute_gene_spectrum_v5
 from utils.smart_dome_engine import build_smart_dome_v4
-from utils.comparison_engine import compare_texts_v4
 from utils.reasoning_engine import build_reasoning_path_v4
 from utils.mesh_engine import build_mesh_networks_v3
 from utils.letter_cards import get_letter_card
 from utils.fusion_engine import run_full_analysis
 from utils.conscious_map_engine import build_conscious_map
 
-st.set_page_config(page_title="Mishkat v12", layout="wide")
-st.title("🟣 Mishkat v12 — Conscious Unified System")
-st.caption("تحليل دلالي | توجيه ذكي | آية مختارة | تفسير عميق | خريطة واعية")
+st.set_page_config(page_title="Mishkat v13", layout="wide")
+st.title("🟣 Mishkat v13 — Conscious Unified System")
+st.caption("تحليل دلالي | توجيه ذكي | آية مختارة | تفسير عميق | خريطة واعية | Root Engine v6.6")
 
 # ============================
 #   SECTION 1 — DATA LOADING
@@ -95,7 +90,7 @@ for a in quran:
 quran = normalized_quran
 
 # ============================================================
-#   SURAH MAP v6 — DATA FIX LAYER
+#   SURAH MAP v6 — DATA FIX LAYER (Root Engine v6.6)
 # ============================================================
 
 def get_surah_text(quran, surah_number):
@@ -103,12 +98,14 @@ def get_surah_text(quran, surah_number):
 
 def get_surah_roots_canonical(quran, surah_number):
     text = get_surah_text(quran, surah_number)
-    analysis = analyze_text_v5(text)
+    analysis = analyze_text_v6(text)
+
     canonical_roots = []
     for root, count in analysis["root_frequency"]:
         canonical_root = canonize_root(root)
-        if canonical_root and len(canonical_root) >= 3:
+        if canonical_root and len(canonical_root) >= 2:
             canonical_roots.append((canonical_root, count))
+
     return canonical_roots
 
 def get_surah_ayahs(quran, surah_number):
@@ -219,7 +216,7 @@ tabs = st.tabs([
     "🗺️ الخريطة الواعية",
     "🧬 Gene Spectrum v5",
     "🕋 Smart Dome v4",
-    "⚖️ المقارنات v4",
+    "⚖️ المقارنات v12",
     "🧭 الاستدلال v4",
     "🕸 Mesh Networks v3",
     "🗺️ Surah Map v6 (Radial Layers)"
@@ -274,7 +271,7 @@ with tabs[1]:
     st.subheader("🧬 تحليل الجذور")
     text = st.text_area("اكتب نصًا للتحليل:")
     if st.button("تحليل الجذور"):
-        analysis = analyze_text_v5(text)
+        analysis = analyze_text_v6(text)
         
         st.markdown("### 🔤 الجذور المستخرجة")
         st.write(analysis["root_frequency"])
@@ -351,15 +348,20 @@ with tabs[4]:
     st.write(dome)
 
 # =========================================================
-# 6) ⚖️ المقارنات v4
+# 6) ⚖️ المقارنات v12
 # =========================================================
 with tabs[5]:
-    st.subheader("⚖️ المقارنات")
-    t1 = st.text_area("النص الأول:")
-    t2 = st.text_area("النص الثاني:")
-    if st.button("قارن"):
-        comp = compare_texts_v4(t1, t2)
-        st.write(comp)
+    st.subheader("⚖️ المقارنات — Comparison Engine v12")
+
+    text1 = st.text_area("النص الأول:", key="compare_text1")
+    text2 = st.text_area("النص الثاني:", key="compare_text2")
+
+    if st.button("قارن", key="compare_btn"):
+        if text1 and text2:
+            result = compare_texts_v12(text1, text2)
+            st.json(result)
+        else:
+            st.warning("⚠️ الرجاء إدخال النصين للمقارنة")
 
 # =========================================================
 # 7) 🧭 الاستدلال v4
@@ -386,10 +388,10 @@ with tabs[7]:
     st.write({"عدد الجذور": mesh["root_count"], "عدد الروابط": mesh["link_count"]})
 
 # =========================================================
-# 9) 🗺️ Surah Map v6 — الخريطة الدائرية (Canvas مزدوج الطبقات)
+# 9) 🗺️ Surah Map v6 — الخريطة الدائرية (Root Engine v6.6)
 # =========================================================
 with tabs[8]:
-    st.subheader("🗺️ Surah Map v6 — الخريطة الدائرية (Root Engine v5.3)")
+    st.subheader("🗺️ Surah Map v6 — الخريطة الدائرية (Root Engine v6.6)")
 
     surah_number = st.number_input("اختر رقم السورة:", min_value=1, max_value=114, value=1, key="surah_map_v6_radial")
 
@@ -421,29 +423,22 @@ with tabs[8]:
     if not currentSurahRoots:
         st.warning("⚠️ لم يتم العثور على جذور لهذه السورة")
     else:
-        st.success(f"✅ {len(currentSurahRoots)} جذراً مستخرجاً من Root Engine v5.3")
-
-        # ============================
-        #   الخريطة الدائرية — Canvas مزدوج الطبقات
-        # ============================
+        st.success(f"✅ {len(currentSurahRoots)} جذراً معيارياً مستخرجاً من Root Engine v6.6")
 
         html_code = """
         <div style="width:100%; display:flex; justify-content:center;">
           <div style="position:relative; width:100%; max-width:700px;">
 
-            <!-- الطبقة الأولى: الخلفية -->
             <canvas id="bgCanvas"
                     style="width:100%; aspect-ratio:1/1;
                            background:#05060a; border-radius:50%; display:block;">
             </canvas>
 
-            <!-- الطبقة الثانية: الجذور -->
             <canvas id="rootCanvas"
                     style="width:100%; aspect-ratio:1/1;
                            position:absolute; top:0; left:0; pointer-events:auto;">
             </canvas>
 
-            <!-- Tooltip -->
             <div id="rootTooltip"
                  style="position:absolute; padding:6px 10px; background:rgba(15,23,42,0.95);
                         color:#e5e7eb; border-radius:6px; font-size:12px; pointer-events:none;
@@ -509,7 +504,7 @@ with tabs[8]:
             bg.fillStyle = '#a5b4fc';
             bg.font = (W * 0.03) + 'px sans-serif';
             bg.textAlign = 'center';
-            bg.fillText('الخريطة الدائرية للجذور', CX, CY - W * 0.02);
+            bg.fillText('الخريطة الدائرية للجذور — Root Engine v6.6', CX, CY - W * 0.02);
           }
 
           drawBackground();
@@ -687,7 +682,7 @@ with tabs[8]:
 # ============================================================
 
 st.markdown("---")
-st.markdown("### ✅ نظام Mishkat v12 جاهز للتشغيل")
+st.markdown("### ✅ نظام Mishkat v13 جاهز للتشغيل")
 
 try:
     _ = quran[0]["surah_number"]
@@ -700,9 +695,9 @@ except:
 try:
     test_roots = get_surah_roots_canonical(quran, 1)
     if test_roots:
-        st.success(f"✔ Root Engine v5.3 يعمل — {len(test_roots)} جذراً للسورة 1")
+        st.success(f"✔ Root Engine v6.6 يعمل — {len(test_roots)} جذراً للسورة 1")
     else:
-        st.warning("⚠️ Root Engine v5.3 لم يستخرج جذوراً")
+        st.warning("⚠️ Root Engine v6.6 لم يستخرج جذوراً")
 except Exception as e:
     st.error(f"❌ خطأ في Root Engine: {e}")
 
