@@ -1,257 +1,100 @@
-# utils/root_engine.py — v5.3
-# Root Engine v5.3 — المحرك السيادي للجذور والوزن والبنية
+# ============================
+#   Mishkat Root Engine v4.0
+#   (Correct Arabic Root Extraction)
+# ============================
 
 import re
 
-# ============================
-# 0) أدوات مساعدة
-# ============================
-AR_DIAC = r"[ًٌٍَُِّْـ]"
-AR_LETTERS = r"[ءاأإآبتثجحخدذرزسشصضطظعغفقكلمنهوي]"
+# ----------------------------
+# 1) تنظيف الكلمة قبل التحليل
+# ----------------------------
 
-def strip_diacritics(text: str) -> str:
-    return re.sub(AR_DIAC, "", text or "")
-
-def normalize_alef(text: str) -> str:
-    return (text or "").replace("أ", "ا").replace("إ", "ا").replace("آ", "ا")
-
-def normalize_word_basic(w: str) -> str:
-    w = strip_diacritics(w)
-    w = normalize_alef(w)
-    w = w.replace("ة", "ه").replace("ى", "ي")
+def clean_word(w: str) -> str:
+    w = w.strip()
+    w = re.sub(r"[^\u0621-\u064A]", "", w)  # إزالة أي شيء غير حرف عربي
+    w = w.replace("ة", "ه")  # توحيد التاء المربوطة
     return w
 
-# زوائد مشهورة
-PREFIXES = ["ال", "وال", "فال", "بال", "كال", "لل", "س", "و", "ف", "ب", "ك", "ل"]
-SUFFIXES = ["كما", "هما", "كم", "كن", "نا", "ها", "هم", "هن", "ان", "ين", "ون", "ات", "ة", "ه", "ي", "ك", "ا"]
 
-# حروف زائدة محتملة
-EXTRA_LETTERS = set(list("استنمويا"))
+# -------------------------------------------
+# 2) معالجة وزن (فَعِيلَة) مثل: سكينة → سكن
+# -------------------------------------------
 
-# ============================
-# 1) تصنيف نوع الكلمة
-# ============================
-def classify_word_type(word: str) -> str:
-    w = strip_diacritics(word)
-    if not w:
-        return "غير محدد"
-
-    if w.startswith(("ي", "ت", "ن", "أ")) and len(w) >= 3:
-        return "فعل"
-
-    if w.startswith("ال"):
-        return "اسم"
-
-    if w.endswith(("ون", "ين", "ات", "ه", "ة")):
-        return "اسم"
-
-    return "غير محدد"
-
-# ============================
-# 2) إزالة البادئات واللواحق
-# ============================
-def strip_prefixes(word: str) -> (str, str):
-    for p in sorted(PREFIXES, key=len, reverse=True):
-        if word.startswith(p) and len(word) > len(p) + 2:
-            return word[len(p):], p
-    return word, ""
-
-def strip_suffixes(word: str) -> (str, str):
-    for s in sorted(SUFFIXES, key=len, reverse=True):
-        if word.endswith(s) and len(word) > len(s) + 2:
-            return word[:-len(s)], s
-    return word, ""
-
-# ============================
-# 3) اكتشاف الوزن
-# ============================
-def detect_pattern(stem: str) -> str:
-    s = stem
-    length = len(s)
-
-    if length == 3:
-        return "فعل ثلاثي مجرد"
-
-    if length == 4:
-        if s.startswith("م"):
-            return "مفعول/مفعل"
-        if s.startswith("ت"):
-            return "تفعّل/تفاعل"
-        if s.startswith("ا"):
-            return "أفعل"
-        return "رباعي محتمل"
-
-    if length == 5:
-        if s.startswith("است"):
-            return "استفعل"
-        if s.startswith("ت"):
-            return "تفاعل/تفعّل"
-        if s.startswith("ان"):
-            return "انفعل"
-        return "خماسي محتمل"
-
-    if length == 6:
-        if s.startswith("است"):
-            return "استفعل سداسي"
-        return "سداسي محتمل"
-
-    return "غير محدد"
-
-# ============================
-# 4) استخراج الجذر — v5.3
-# ============================
-def extract_root_v5(word: str) -> str:
+def normalize_pattern_fa3eela(w: str) -> str:
     """
-    محرك الجذر v5.3 — إصلاح وزن فعلان + توحيد الرحمن + إصلاح الحمد
+    إذا كانت الكلمة على وزن (فَعِيلَة):
+    حرف + حرف + ي + حرف + ة/ه
+    نعيد الجذر: الأول + الثاني + الرابع
     """
+    if len(w) == 5:
+        if w[2] == "ي" and w[-1] in ["ه", "ة"]:
+            return w[0] + w[1] + w[3]
+    return w
 
-    if not isinstance(word, str) or not word.strip():
-        return ""
 
-    w = normalize_word_basic(word)
+# -------------------------------------------------
+# 3) إزالة حروف الزيادة الشائعة (سألتمونيها)
+# -------------------------------------------------
 
-    # إزالة البادئات
-    w, pref = strip_prefixes(w)
+EXTRA_LETTERS = set("سألتومنيها")
 
-    # إزالة اللواحق
-    w, suf = strip_suffixes(w)
+def remove_extra_letters(w: str) -> str:
+    # نزيل الحروف الزائدة فقط إذا كانت الكلمة أطول من 3
+    if len(w) > 3:
+        return "".join([c for c in w if c not in EXTRA_LETTERS])
+    return w
 
-    # 🔥 إصلاح وزن "فعلان" (مثل: الرحمن، الغضبان، العطشان)
-    if len(w) == 5 and w.endswith("ان"):
-        core = w[:-2]
-        if len(core) == 3:
-            w = core
-        elif len(core) == 4:
-            for i, ch in enumerate(core):
-                if ch in EXTRA_LETTERS:
-                    c3 = core[:i] + core[i+1:]
-                    if len(c3) == 3:
-                        w = c3
-                        break
-            else:
-                w = core[:3]
 
-    # ثلاثي مباشر
+# -------------------------------------------
+# 4) استخراج الجذر الثلاثي بعد التطبيع
+# -------------------------------------------
+
+def extract_root(w: str) -> str:
+    w = clean_word(w)
+    w = normalize_pattern_fa3eela(w)
+    w = remove_extra_letters(w)
+
+    # إذا أصبحت الكلمة 3 أحرف → هذا هو الجذر
     if len(w) == 3:
-        root = w
+        return w
 
-    # رباعي
-    elif len(w) == 4:
-        for i, ch in enumerate(w):
-            if ch in EXTRA_LETTERS:
-                c3 = w[:i] + w[i+1:]
-                if len(c3) == 3:
-                    root = c3
-                    break
-        else:
-            for c in ["ا", "و", "ي"]:
-                if c in w:
-                    c3 = w.replace(c, "")
-                    if len(c3) == 3:
-                        root = c3
-                        break
-            else:
-                root = w[0] + w[1] + w[-1]
+    # إذا 4 أحرف → نحذف حرف علّة أو تضعيف
+    if len(w) == 4:
+        # حذف حرف علّة
+        for c in ["ا", "و", "ي"]:
+            if c in w:
+                w2 = w.replace(c, "")
+                if len(w2) == 3:
+                    return w2
 
-    # خماسي
-    elif len(w) == 5:
-        candidates = []
-        for i, ch in enumerate(w):
-            if ch in EXTRA_LETTERS:
-                c4 = w[:i] + w[i+1:]
-                if len(c4) == 4:
-                    candidates.append(c4)
+        # حذف تضعيف
+        if w[1] == w[2]:
+            return w[0] + w[1] + w[3]
 
-        for c4 in candidates:
-            for i, ch in enumerate(c4):
-                if ch in EXTRA_LETTERS:
-                    c3 = c4[:i] + c4[i+1:]
-                    if len(c3) == 3:
-                        root = c3
-                        break
-            else:
-                continue
-            break
-        else:
-            core = [ch for ch in w if ch not in EXTRA_LETTERS]
-            if len(core) >= 3:
-                root = "".join(core[:3])
-            else:
-                root = w[:3]
+    # fallback: نأخذ أول 3 أحرف
+    return w[:3]
 
-    # أطول من 5
-    else:
-        core = [ch for ch in w if ch not in EXTRA_LETTERS]
-        if len(core) >= 3:
-            root = "".join(core[:3])
-        else:
-            root = w[:3]
 
-    # 🔥 توحيد خاص للرحمن → رحم
-    if root == "رحن":
-        return "رحم"
+# -------------------------------------------
+# 5) الواجهة الرئيسية للتحليل
+# -------------------------------------------
 
-    # 🔥 إصلاح جذر الحمد → حمد
-    if root in ["حدل", "حلد", "حمدل", "حمل", "حمل"]:
-        return "حمد"
-
-    return root
-
-# ============================
-# 5) تحليل كلمة — v5.3
-# ============================
-def analyze_word_v5(word: str) -> dict:
-    original = word
-    normalized = normalize_word_basic(word)
-
-    stem, pref = strip_prefixes(normalized)
-    stem, suf = strip_suffixes(stem)
-
-    root = extract_root_v5(word)
-    pattern = detect_pattern(stem)
-    wtype = classify_word_type(normalized)
-
-    return {
-        "original": original,
-        "normalized": normalized,
-        "type": wtype,
-        "prefix": pref,
-        "suffix": suf,
-        "stem": stem,
-        "root": root,
-        "pattern": pattern,
-        "length": len(normalized),
-        "status": "Root Engine v5.3 analysis complete"
-    }
-
-# ============================
-# 6) تحليل نص كامل — v5.3
-# ============================
-def analyze_text_v5(text: str) -> dict:
-    if not isinstance(text, str):
-        text = str(text or "")
-
-    text_clean = re.sub(r"[^\u0600-\u06FF\s]", " ", text)
-    text_clean = re.sub(r"\s+", " ", text_clean).strip()
-
-    words = [w for w in text_clean.split(" ") if w]
-
-    analyses = []
-    root_freq = {}
+def analyze_text_v5(text: str):
+    words = text.split()
+    roots = []
 
     for w in words:
-        info = analyze_word_v5(w)
-        analyses.append(info)
-        r = info["root"]
-        if r:
-            root_freq[r] = root_freq.get(r, 0) + 1
+        r = extract_root(w)
+        roots.append(r)
 
-    root_freq_sorted = sorted(root_freq.items(), key=lambda x: x[1], reverse=True)
+    # حساب التكرار
+    freq = {}
+    for r in roots:
+        freq[r] = freq.get(r, 0) + 1
+
+    root_frequency = [(r, freq[r]) for r in freq]
 
     return {
-        "word_count": len(words),
-        "analyses": analyses,
-        "root_frequency": root_freq_sorted,
-        "unique_roots": len(root_freq_sorted),
-        "status": "Root Engine v5.3 text analysis complete"
+        "roots": roots,
+        "root_frequency": root_frequency
     }
