@@ -1,7 +1,6 @@
 # ============================
-#   Mishkat v13 — Conscious Unified System
-#   Root Engine v6.6 — Canonical Roots Only
-#   Fusion Engine v2 + Conscious Map Engine
+#   Mishkat v13 — Root Engine v6.6 Only
+#   No v5, No syllable splitting
 # ============================
 
 import streamlit as st
@@ -16,7 +15,12 @@ import pandas as pd
 from utils.data_loader import load_quran
 from utils.root_engine import analyze_text_v6
 from utils.comparison_engine import compare_texts_v12
-from utils.surah_map_engine import get_surah_roots_v6, get_surah_stats_v6, get_surah_signature_v6, get_surah_links_v6
+from utils.surah_map_engine import (
+    get_surah_roots_v6,
+    get_surah_stats_v6,
+    get_surah_signature_v6,
+    get_surah_links_v6
+)
 from utils.root_canonizer import canonize_root
 from utils.gene_spectrum_engine import compute_gene_spectrum_v5
 from utils.smart_dome_engine import build_smart_dome_v4
@@ -27,12 +31,11 @@ from utils.fusion_engine import run_full_analysis
 from utils.conscious_map_engine import build_conscious_map
 
 st.set_page_config(page_title="Mishkat v13", layout="wide")
-st.title("🟣 Mishkat v13 — Conscious Unified System")
-st.caption("تحليل دلالي | توجيه ذكي | آية مختارة | تفسير عميق | خريطة واعية | Root Engine v6.6")
+st.title("🟣 Mishkat v13 — Root Engine v6.6 Only")
+st.caption("تحليل دلالي | جذور حقيقية | لا تجزئة حروف")
 
 # ============================
-#   SECTION 1 — DATA LOADING
-#   (EXE + Local Compatibility)
+#   DATA LOADING
 # ============================
 
 def get_path(rel_path):
@@ -90,13 +93,17 @@ for a in quran:
 quran = normalized_quran
 
 # ============================================================
-#   SURAH MAP v6 — DATA FIX LAYER (Root Engine v6.6)
+#   SURAH MAP v6 — ROOT ENGINE v6.6 ONLY
 # ============================================================
 
 def get_surah_text(quran, surah_number):
     return " ".join([a["text"] for a in quran if a["surah_number"] == surah_number])
 
 def get_surah_roots_canonical(quran, surah_number):
+    """استخراج الجذور باستخدام Root Engine v6.6 فقط"""
+    from utils.root_engine import analyze_text_v6
+    from utils.root_canonizer import canonize_root
+
     text = get_surah_text(quran, surah_number)
     analysis = analyze_text_v6(text)
 
@@ -265,10 +272,11 @@ with tabs[0]:
             st.write(result["reasoning"])
 
 # =========================================================
-# 2) 🧬 تحليل الجذور
+# 2) 🧬 تحليل الجذور — Root Engine v6.6
 # =========================================================
 with tabs[1]:
-    st.subheader("🧬 تحليل الجذور")
+    st.subheader("🧬 تحليل الجذور — Root Engine v6.6")
+
     text = st.text_area("اكتب نصًا للتحليل:")
     if st.button("تحليل الجذور"):
         analysis = analyze_text_v6(text)
@@ -696,6 +704,7 @@ try:
     test_roots = get_surah_roots_canonical(quran, 1)
     if test_roots:
         st.success(f"✔ Root Engine v6.6 يعمل — {len(test_roots)} جذراً للسورة 1")
+        st.write("عينة من الجذور:", test_roots[:10])
     else:
         st.warning("⚠️ Root Engine v6.6 لم يستخرج جذوراً")
 except Exception as e:
