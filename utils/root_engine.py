@@ -1,5 +1,5 @@
 # ============================
-#   Root Engine v6.6 — True Root Extraction
+#   Root Engine v6.6 — True Root Extraction (Final)
 #   Stable Version for Mishkat v13
 # ============================
 
@@ -27,7 +27,8 @@ def extract_words(text):
     return [w for w in words if w not in STOPWORDS and len(w) > 1]
 
 def extract_root(word):
-    """استخراج الجذر الثلاثي الحقيقي"""
+    """استخراج الجذر الثلاثي الحقيقي بدون حذف زائد"""
+
     w = word
 
     # إزالة التشكيل
@@ -37,24 +38,34 @@ def extract_root(word):
     if w.startswith("ال"):
         w = w[2:]
 
-    # إزالة حروف الزيادة
+    # قائمة حروف الزيادة الصحيحة (سألتمونيها)
     EXTRA = set("سألتومنيها")
-    core = "".join([c for c in w if c not in EXTRA])
 
-    # إذا أصبح 3 أحرف → هذا هو الجذر
-    if len(core) == 3:
-        return core
+    # إذا الكلمة 3 أحرف → هذا هو الجذر
+    if len(w) == 3:
+        return w
 
-    # إذا 4 أحرف → حاول حذف حرف علة
-    if len(core) == 4:
-        for c in ["ا", "و", "ي"]:
-            if c in core:
-                t = core.replace(c, "")
+    # إذا الكلمة 4 أحرف → نحاول حذف حرف زيادة واحد فقط
+    if len(w) == 4:
+        # 1) حذف حرف زيادة واحد فقط
+        for c in EXTRA:
+            if c in w:
+                t = w.replace(c, "", 1)
                 if len(t) == 3:
                     return t
 
-    # fallback: أول 3 أحرف بعد التنظيف (نادرًا ما يحدث)
-    return core[:3]
+        # 2) حذف حرف علة واحد فقط
+        for c in ["ا", "و", "ي"]:
+            if c in w:
+                t = w.replace(c, "", 1)
+                if len(t) == 3:
+                    return t
+
+    # fallback آمن: لا نسمح بجذور ثنائية
+    if len(w) >= 3:
+        return w[:3]
+
+    return w
 
 def analyze_text_v6(text):
     """Root Engine v6.6 — استخراج جذور ثلاثية حقيقية"""
