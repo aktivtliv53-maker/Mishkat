@@ -1,10 +1,11 @@
 # ============================
-#   Mishkat Root Engine v6.5
-#   (Canonical Triliteral Extraction)
+#   Mishkat Root Engine v6.6
+#   (Quran-Aware Root Extractor)
 # ============================
 
 import re
 from utils.weights_engine import normalize_by_weight
+
 
 # -------------------------------------------
 # 1) تنظيف الكلمة
@@ -13,12 +14,30 @@ from utils.weights_engine import normalize_by_weight
 def clean_word(w: str) -> str:
     w = w.strip()
     w = re.sub(r"[^\u0621-\u064A]", "", w)
+
+    # توحيد الهمزات
     w = w.replace("أ","ا").replace("إ","ا").replace("آ","ا")
+
+    # التاء المربوطة
     w = w.replace("ة","ه")
+
     return w
 
+
 # -------------------------------------------
-# 2) إزالة أل التعريف
+# 2) معالجة الضمائر الخاصة (إياك – إياكم – إياكما – إياكن)
+# -------------------------------------------
+
+IYAA_FORMS = ["اياك", "اياكم", "اياكما", "اياكن", "اياكن", "اياكما"]
+
+def handle_iyaa(w: str) -> str:
+    if w in IYAA_FORMS:
+        return "أيّ"   # ضمير خاص بلا جذر ثلاثي
+    return w
+
+
+# -------------------------------------------
+# 3) إزالة أل التعريف
 # -------------------------------------------
 
 def remove_al(w: str) -> str:
@@ -26,8 +45,9 @@ def remove_al(w: str) -> str:
         return w[2:]
     return w
 
+
 # -------------------------------------------
-# 3) إزالة الضمائر
+# 4) إزالة الضمائر
 # -------------------------------------------
 
 PRONOUN_SUFFIXES = ["ه","هم","هن","كما","كم","نا","ي","ك"]
@@ -38,8 +58,9 @@ def remove_pronouns(w: str) -> str:
             return w[:-len(suf)]
     return w
 
+
 # -------------------------------------------
-# 4) إزالة حروف الزيادة
+# 5) إزالة حروف الزيادة
 # -------------------------------------------
 
 EXTRA = set("سألتومنيها")
@@ -49,8 +70,9 @@ def remove_extra(w: str) -> str:
         return "".join([c for c in w if c not in EXTRA])
     return w
 
+
 # -------------------------------------------
-# 5) معالجة الأوزان الصرفية
+# 6) معالجة الأوزان الصرفية
 # -------------------------------------------
 
 def apply_patterns(w: str) -> str:
@@ -66,14 +88,20 @@ def apply_patterns(w: str) -> str:
     if len(w) == 4 and w[0] == "ن":
         return w[1:]
 
+    # مستفعل → مستقيم → قوم/قيم
+    if w.startswith("مست") and len(w) >= 5:
+        return w[3:]
+
     return w
 
+
 # -------------------------------------------
-# 6) استخراج الجذر
+# 7) استخراج الجذر
 # -------------------------------------------
 
 def extract_root(w: str) -> str:
     w = clean_word(w)
+    w = handle_iyaa(w)          # معالجة إياك
     w = remove_al(w)
     w = remove_pronouns(w)
 
@@ -93,11 +121,12 @@ def extract_root(w: str) -> str:
                 if len(w2) == 3:
                     return w2
 
-    # لا نستخدم fallback الخاطئ
+    # fallback آمن
     return w[:3]
 
+
 # -------------------------------------------
-# 7) الواجهة الرئيسية
+# 8) الواجهة الرئيسية
 # -------------------------------------------
 
 def analyze_text_v6(text: str):
