@@ -1,8 +1,8 @@
-# utils/semantic_engine.py — v11.3
+# utils/semantic_engine.py — v12
 # Semantic Engine now uses:
-# Root Engine v5  +  Root Canonizer v1
+# Root Engine v6  +  Root Canonizer v1
 
-from utils.root_engine import extract_root_v5, analyze_word_v5
+from utils.root_engine import extract_root, analyze_text_v5
 from utils.root_canonizer import canonize_root
 
 import re
@@ -21,7 +21,7 @@ def extract_roots_from_text(text: str):
 
     roots = []
     for w in words:
-        raw = extract_root_v5(w)
+        raw = extract_root(w)
         canon = canonize_root(raw)
         if canon:
             roots.append(canon)
@@ -29,6 +29,6 @@ def extract_roots_from_text(text: str):
     return roots
 
 def analyze_word(text: str):
-    info = analyze_word_v5(text)
-    info["canonical_root"] = canonize_root(info["root"])
+    info = analyze_text_v5(text)
+    info["canonical_root"] = canonize_root(info["roots"][0])
     return info
