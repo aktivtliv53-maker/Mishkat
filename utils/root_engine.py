@@ -1,6 +1,6 @@
 # ============================
-#   Mishkat Root Engine v5.1
-#   (Integrated with Weights Engine)
+#   Mishkat Root Engine v6.0
+#   (Corrected Weight Order)
 # ============================
 
 import re
@@ -8,13 +8,12 @@ from utils.weights_engine import normalize_by_weight
 
 
 # -------------------------------------------
-# 1) تنظيف الكلمة قبل التحليل
+# 1) تنظيف الكلمة (بدون حذف التاء المربوطة)
 # -------------------------------------------
 
-def clean_word(w: str) -> str:
+def clean_basic(w: str) -> str:
     w = w.strip()
-    w = re.sub(r"[^\u0621-\u064A]", "", w)  # إزالة أي شيء غير حرف عربي
-    w = w.replace("ة", "ه")  # توحيد التاء المربوطة
+    w = re.sub(r"[^\u0621-\u064A]", "", w)
     return w
 
 
@@ -35,20 +34,23 @@ def remove_extra_letters(w: str) -> str:
 # -------------------------------------------
 
 def extract_root(w: str) -> str:
-    # تنظيف أولي
-    w = clean_word(w)
+    # 1) تنظيف أولي بدون حذف التاء المربوطة
+    w = clean_basic(w)
 
-    # *** أهم خطوة — طبقة الأوزان ***
+    # 2) *** طبقة الأوزان قبل أي تعديل ***
     w = normalize_by_weight(w)
 
-    # إزالة حروف الزيادة
+    # 3) الآن نحذف التاء المربوطة بعد تطبيق الوزن
+    w = w.replace("ة", "ه")
+
+    # 4) إزالة حروف الزيادة
     w = remove_extra_letters(w)
 
-    # إذا أصبحت 3 أحرف → هذا هو الجذر
+    # 5) إذا أصبحت 3 أحرف → هذا هو الجذر
     if len(w) == 3:
         return w
 
-    # معالجة الكلمات ذات 4 أحرف
+    # 6) معالجة الكلمات ذات 4 أحرف
     if len(w) == 4:
         # حذف حرف علّة
         for c in ["ا", "و", "ي"]:
@@ -61,7 +63,7 @@ def extract_root(w: str) -> str:
         if w[1] == w[2]:
             return w[0] + w[1] + w[3]
 
-    # fallback: أول 3 أحرف
+    # 7) fallback: أول 3 أحرف
     return w[:3]
 
 
