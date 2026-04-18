@@ -1,6 +1,6 @@
 # ============================
 #   Mishkat v13 — Root Engine v6.6 Only
-#   No v5, No syllable splitting
+#   No syllable splitting, No v5, No semantic_engine
 # ============================
 
 import streamlit as st
@@ -32,7 +32,7 @@ from utils.conscious_map_engine import build_conscious_map
 
 st.set_page_config(page_title="Mishkat v13", layout="wide")
 st.title("🟣 Mishkat v13 — Root Engine v6.6 Only")
-st.caption("تحليل دلالي | جذور حقيقية | لا تجزئة حروف")
+st.caption("جذور حقيقية | لا تجزئة حروف | لا syllable splitting")
 
 # ============================
 #   DATA LOADING
@@ -100,7 +100,7 @@ def get_surah_text(quran, surah_number):
     return " ".join([a["text"] for a in quran if a["surah_number"] == surah_number])
 
 def get_surah_roots_canonical(quran, surah_number):
-    """استخراج الجذور باستخدام Root Engine v6.6 فقط"""
+    """استخراج الجذور باستخدام Root Engine v6.6 فقط - لا تجزئة حروف"""
     from utils.root_engine import analyze_text_v6
     from utils.root_canonizer import canonize_root
 
@@ -704,7 +704,7 @@ try:
     test_roots = get_surah_roots_canonical(quran, 1)
     if test_roots:
         st.success(f"✔ Root Engine v6.6 يعمل — {len(test_roots)} جذراً للسورة 1")
-        st.write("عينة من الجذور:", test_roots[:10])
+        st.write("عينة من الجذور:", [r for r, _ in test_roots[:15]])
     else:
         st.warning("⚠️ Root Engine v6.6 لم يستخرج جذوراً")
 except Exception as e:
