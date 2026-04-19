@@ -1,62 +1,57 @@
 # ============================
-#   Surah Map Engine v7 — Final
-#   Fully Compatible with Root Engine v7
-#   No canonize_root, No legacy imports
+#   Surah Map Engine v7 — Stable Network Edition
+#   (اسم ثابت — يعمل على root_engine_v7 مباشرة)
 # ============================
 
 from utils.root_engine_v7 import analyze_text_v7
 
-def get_surah_text(quran, surah_number):
-    """دمج نصوص السورة في نص واحد"""
-    return " ".join(
-        a["text"] for a in quran
-        if a.get("surah_number") == surah_number
-    )
+# ------------------------------------
+# 1) بناء شبكة الجذور داخل السورة
+# ------------------------------------
+def build_surah_map(quran, surah_number):
+    ayahs = [a for a in quran if a["surah_number"] == surah_number]
 
-def get_surah_roots_v7(quran, surah_number):
-    """إرجاع الجذور مع تكرارها داخل السورة"""
-    text = get_surah_text(quran, surah_number)
-    analysis = analyze_text_v7(text)
+    nodes = {}
+    links = {}
 
-    # الجذور جاهزة من v7 ولا تحتاج تطبيع إضافي
-    return analysis["root_frequency"]
+    for ayah in ayahs:
+        analysis = analyze_text_v7(ayah["text"])
+        roots = [r for r, c in analysis["root_frequency"]]
 
-def get_surah_stats_v7(quran, surah_number):
-    """إحصائيات السورة"""
-    roots = get_surah_roots_v7(quran, surah_number)
+        # إضافة الجذور كعُقد
+        for r in roots:
+            if r not in nodes:
+                nodes[r] = {"id": r, "count": 0}
+            nodes[r]["count"] += 1
+
+        # بناء الروابط (co-occurrence)
+        for i in range(len(roots)):
+            for j in range(i + 1, len(roots)):
+                pair = tuple(sorted([roots[i], roots[j]]))
+                if pair not in links:
+                    links[pair] = 0
+                links[pair] += 1
+
+    # تحويل الروابط إلى قائمة
+    link_list = []
+    for (a, b), w in links.items():
+        link_list.append({
+            "source": a,
+            "target": b,
+            "weight": w
+        })
+
+    # تحويل العقد إلى قائمة
+    node_list = []
+    for r, data in nodes.items():
+        node_list.append({
+            "id": r,
+            "weight": data["count"]
+        })
 
     return {
         "surah": surah_number,
-        "unique_roots": len(roots),
-        "root_frequency": roots,
-        "top_roots": roots[:20],
-        "status": "Surah Map v7 — pattern-based roots"
+        "nodes": node_list,
+        "links": link_list,
+        "status": "Surah Map v7 — Root Network Active"
     }
-
-def get_surah_signature_v7(quran, surah_number, top_n=10):
-    """البصمة الجذرية للسورة"""
-    return get_surah_roots_v7(quran, surah_number)[:top_n]
-
-def get_surah_links_v7(quran, surah_number):
-    """العلاقات بين السور بناءً على الجذور المشتركة"""
-    roots_s = dict(get_surah_roots_v7(quran, surah_number))
-    surahs = sorted(set(a["surah_number"] for a in quran))
-
-    links = []
-
-    for s in surahs:
-        if s == surah_number:
-            continue
-
-        roots_other = dict(get_surah_roots_v7(quran, s))
-        shared = set(roots_s.keys()) & set(roots_other.keys())
-
-        if shared:
-            links.append({
-                "surah": s,
-                "shared_roots": list(shared),
-                "weight": len(shared)
-            })
-
-    links = sorted(links, key=lambda x: x["weight"], reverse=True)
-    return links
