@@ -1,139 +1,74 @@
-# utils/root_engine_v7.py
+# ============================
+#   Root Engine v7.0 — المحرك الجذري السيادي
+#   يستخدم Lexicon v7 للتحقق من صحة الجذور
+# ============================
 
 import re
 from collections import Counter
-from utils.lexicon_v7 import (
-    SOVEREIGN_LEXICON,
-    PREFIXES,
-    SUFFIXES,
-    normalize_token,
-)
-from utils.root_canonizer import canonize_root  # إن أردت التطبيع الوجودي
+from utils.root_canonizer import canonize_root
+from utils.lexicon_v7 import get_root_info, LEXICON_V7
 
-# يمكن لاحقًا دمج STOPWORDS مع ما عندك في v6.6
+# الكلمات الضعيفة للإزالة
 STOPWORDS = {
-    "من", "في", "على", "عن", "الى", "إلى", "و", "يا", "ما", "هذا", "هذه",
+    "من", "في", "على", "عن", "إلى", "و", "يا", "ما", "هذا", "هذه",
     "ذلك", "تلك", "ثم", "ف", "ب", "ل", "ك", "إن", "أن", "قد", "هل",
     "أ", "إ", "ألا", "أفلا", "أولم", "ألم", "لعل", "ليت", "هو", "هي",
-    "هم", "هن", "نحن", "أنت", "أنتم", "أنتن", "ولا"
+    "هم", "هن", "نحن", "أنت", "أنتم", "أنتن", "الذي", "التي", "الذين"
 }
 
-def strip_diacritics(text: str) -> str:
-    return re.sub(r"[ًٌٍَُِّْـ]", "", text)
+def normalize_text(text):
+    """تطبيع النص وإزالة الرموز غير العربية"""
+    text = re.sub(r"[^\u0600-\u06FF\s]", "", text)
+    return text.strip()
 
-def normalize_arabic(text: str) -> str:
-    text = strip_diacritics(text)
-    text = re.sub(r"[إأآا]", "ا", text)
-    return text
+def extract_words(text):
+    """استخراج الكلمات من النص مع إزالة الكلمات الضعيفة"""
+    text = normalize_text(text)
+    words = text.split()
+    return [w for w in words if w not in STOPWORDS and len(w) > 1]
 
-def clean_word(raw: str) -> str:
-    """تنظيف الكلمة من الرموز + السوابق + اللواحق"""
-    w = re.sub(r"[^\u0621-\u064A]", "", raw)
-    w = normalize_arabic(w)
+def validate_root(root):
+    """التحقق من صحة الجذر باستخدام Lexicon v7"""
+    if root in LEXICON_V7:
+        return True
+    canonical = canonize_root(root)
+    return canonical in LEXICON_V7
 
-    # إزالة السوابق
-    for p in sorted(PREFIXES, key=len, reverse=True):
-        if w.startswith(p) and len(w) > len(p) + 1:
-            w = w[len(p):]
-            break
-
-    # إزالة اللواحق
-    for s in sorted(SUFFIXES, key=len, reverse=True):
-        if w.endswith(s) and len(w) > len(s) + 1:
-            w = w[:-len(s)]
-            break
-
-    return w
-
-def extract_root_by_pattern(word: str) -> str | None:
-    """استخراج الجذر بناءً على الأوزان + القاموس السيادي"""
-
-    w = normalize_token(word)
-    n = len(w)
-    if n == 0:
-        return None
-
-    # 1) القاموس السيادي أولاً
-    if w in SOVEREIGN_LEXICON:
-        return SOVEREIGN_LEXICON[w]
-
-    # 2) أوزان ثلاثية مزيدة شائعة
-
-    # مستفعل / مستفعلين (مستقيم، مستنصر)
-    if w.startswith("مست") and n >= 6:
-        core = w[3:]
-        if len(core) >= 3:
-            return core[:3]
-
-    # مفعول (مغضوب، منصور)
-    # م + ف + ع + و + ل
-    if w.startswith("م") and "و" in w[2:-1] and n >= 5:
-        # مثال: مغضوب → م غ ض و ب
-        # نأخذ الحرف 1،2، والأخير
-        return w[1] + w[2] + w[-1]
-
-    # فاعل (ضال، قائل)
-    # ف ا ع ل
-    if n >= 4 and w[1] == "ا":
-        # مثال: ضال → ض ا ل → ض ل ل (تقريبًا)
-        # مثال: قائل → قايل → قول (تقريبًا)
-        root = w[0] + w[2] + (w[3] if n > 3 else w[2])
-        root = root.replace("ئ", "و")
-        return root
-
-    # افتعل (اختلف، اختبر)
-    if n >= 5 and w.startswith("ا") and w[2] == "ت":
-        # ا + ف + ت + ع + ل
-        return w[1] + w[3] + (w[4] if n > 4 else w[3])
-
-    # انفعل / انفعال (انطلق، انقلب)
-    if n >= 5 and w.startswith("ان"):
-        return w[2] + w[3] + (w[4] if n > 4 else w[3])
-
-    # 3) الفعل المضارع (يكتب، يستهزئون، يخادعون)
-    if n >= 4 and w[0] in {"ي", "ت", "ن", "ا"}:
-        core = w[1:]
-        if len(core) >= 3:
-            return core[:3]
-
-    # 4) إذا كانت ثلاثية → نعتبرها جذرًا
-    if n == 3:
-        return w
-
-    # 5) fallback تقريبي: أول ثلاثة أحرف بعد التنظيف
-    if n > 3:
-        return w[:3]
-
-    return w
-
-def analyze_text_v7(text: str):
-    """محرك الجذور v7 — تحليل نص كامل"""
-    tokens = text.split()
-    roots = []
-
-    for t in tokens:
-        t_norm = normalize_arabic(t)
-        if not t_norm or t_norm in STOPWORDS:
-            continue
-
-        cleaned = clean_word(t_norm)
-        if not cleaned or cleaned in STOPWORDS:
-            continue
-
-        root = extract_root_by_pattern(cleaned)
-        if not root:
-            continue
-
-        # يمكن هنا تمرير الجذر عبر canonize_root إن أردت
-        canonical = canonize_root(root)
-        if canonical and len(canonical) >= 3:
-            roots.append(canonical)
-        elif root and len(root) >= 3:
-            roots.append(root)
-
-    freq = Counter(roots).most_common()
+def analyze_text_v7(text):
+    """
+    Root Engine v7.0 - تحليل النص مع التحقق من Lexicon v7
+    يضمن عدم ظهور جذور غير قرآنية أو مقاطع صوتية
+    """
+    words = extract_words(text)
+    root_counter = Counter()
+    
+    for word in words:
+        if len(word) >= 3:
+            potential_root = word[:3]
+            canonical = canonize_root(potential_root)
+            
+            if canonical and len(canonical) >= 2 and validate_root(canonical):
+                root_counter[canonical] += 1
+    
+    sorted_roots = []
+    root_weights = {}
+    root_categories = {}
+    
+    for root, count in root_counter.most_common():
+        root_info = get_root_info(root)
+        sorted_roots.append((root, count))
+        root_weights[root] = root_info.get("weight", 0.5)
+        root_categories[root] = root_info.get("category", "عام")
+    
     return {
-        "root_frequency": freq,
-        "total_roots": len(roots),
-        "status": "Root Engine v7 — pattern-based",
+        "root_frequency": sorted_roots,
+        "root_weights": root_weights,
+        "root_categories": root_categories,
+        "total_roots": len(sorted_roots),
+        "status": "Root Engine v7.0 - Lexicon Verified"
     }
+
+# للتوافق مع الإصدارات القديمة
+analyze_text_v6 = analyze_text_v7
+analyze_text_v5 = analyze_text_v7
+analyze_text_v4 = analyze_text_v7
