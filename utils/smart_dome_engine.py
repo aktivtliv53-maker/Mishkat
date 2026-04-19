@@ -1,6 +1,6 @@
 # ============================
 #   Smart Dome Engine v4
-#   متوافق مع Root Engine v7.0
+#   متوافق مع Root Engine v7.0 (بدون root_canonizer)
 # ============================
 
 from utils.root_engine_v7 import analyze_text_v7
@@ -13,7 +13,6 @@ def build_smart_dome_v4(quran, surah_number):
     return {
         "surah": surah_number,
         "roots": analysis["root_frequency"],
-        "weights": analysis.get("root_weights", {}),
-        "categories": analysis.get("root_categories", {}),
+        "total_roots": len(analysis["root_frequency"]),
         "status": "Smart Dome v4 with Root Engine v7.0"
     }
