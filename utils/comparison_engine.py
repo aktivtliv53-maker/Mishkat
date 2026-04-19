@@ -4,26 +4,20 @@
 # ============================
 
 from utils.root_engine_v7 import analyze_text_v7
-from utils.root_canonizer import canonize_root
 
 def compare_texts_v12(text1, text2):
     """مقارنة نصين واستخراج الجذور المشتركة والفريدة"""
     
-    # تحليل النصين باستخدام Root Engine v7.0
     analysis1 = analyze_text_v7(text1)
     analysis2 = analyze_text_v7(text2)
     
     roots1 = {r: c for r, c in analysis1["root_frequency"]}
     roots2 = {r: c for r, c in analysis2["root_frequency"]}
     
-    # الجذور المشتركة
     shared = set(roots1.keys()) & set(roots2.keys())
-    
-    # الجذور الفريدة لكل نص
     unique_1 = set(roots1.keys()) - set(roots2.keys())
     unique_2 = set(roots2.keys()) - set(roots1.keys())
     
-    # حساب درجات التشابه
     if not roots1 or not roots2:
         similarity = 0
     else:
@@ -41,5 +35,4 @@ def compare_texts_v12(text1, text2):
         "status": "Comparison Engine v12 with Root Engine v7.0"
     }
 
-# للتوافق مع الإصدارات القديمة
 compare_texts_v4 = compare_texts_v12
