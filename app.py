@@ -241,25 +241,25 @@ with tabs[8]:
     surah_number = st.number_input("اختر رقم السورة:", 1, 114, 1, key="surah_map_v7")
 
     if st.button("عرض الخريطة"):
-        try:
-            from streamlit_agraph import agraph, Node, Edge, Config
-            
-            result = build_surah_map(quran, surah_number)
+        result = build_surah_map(quran, surah_number)
 
-            st.success(f"تم استخراج {len(result['nodes'])} جذراً")
+        from streamlit_agraph import agraph, Node, Edge, Config
 
-            nodes = [Node(id=n["id"], label=n["id"], size=n["weight"] * 3) for n in result["nodes"]]
-            edges = [Edge(source=l["source"], target=l["target"], label=str(l["weight"])) for l in result["links"]]
+        nodes = [Node(id=n["id"], label=n["id"], size=n["weight"] * 3) for n in result["nodes"]]
+        edges = [Edge(source=l["source"], target=l["target"], label=str(l["weight"])) for l in result["links"]]
 
-            config = Config(
-                width=900,
-                height=600,
-                directed=False,
-                physics=True,
-                hierarchical=False
-            )
+        config = Config(
+            width=900,
+            height=600,
+            directed=False,
+            physics=True,
+            hierarchical=False,
+            nodeHighlightBehavior=True,
+            highlightColor="#F7A7A6",
+            collapsible=False
+        )
 
-            agraph(nodes=nodes, edges=edges, config=config)
+        agraph(nodes=nodes, edges=edges, config=config)
         except ImportError:
             st.error("⚠️ يرجى تثبيت المكتبة: pip install streamlit-agraph")
         except Exception as e:
