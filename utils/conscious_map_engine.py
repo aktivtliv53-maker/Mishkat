@@ -1,30 +1,49 @@
 # ============================
-#   Conscious Map Engine v1
-#   متوافق مع Root Engine v7.0
+#   Conscious Map Engine v3 — Final
+#   Fully Compatible with Root Engine v7
+#   No canonize_root, No legacy imports
 # ============================
 
 from utils.root_engine_v7 import analyze_text_v7
-from utils.root_canonizer import canonize_root
 
-def build_conscious_map(surah_num, quran):
-    """بناء خريطة واعية للسورة"""
-    ayahs = [a for a in quran if a["surah_number"] == surah_num]
-    full_text = " ".join([a["text"] for a in ayahs])
-    
-    analysis = analyze_text_v7(full_text)
-    
-    # الآيات المحورية (أعلى 5 آيات من حيث عدد الجذور)
-    scored_ayahs = []
+def build_conscious_map(quran, surah_number):
+    """
+    بناء الخريطة الوجودية للسورة:
+    - استخراج الجذور
+    - حساب التكرار
+    - بناء مستويات الوعي الجذري
+    """
+
+    # 1) جمع آيات السورة
+    ayahs = [a for a in quran if a["surah_number"] == surah_number]
+
+    all_roots = []
+
+    # 2) استخراج الجذور من كل آية
     for ayah in ayahs:
-        ayah_analysis = analyze_text_v7(ayah["text"])
-        scored_ayahs.append((ayah, len(ayah_analysis["root_frequency"])))
-    
-    scored_ayahs.sort(key=lambda x: x[1], reverse=True)
-    key_ayahs = [a for a, _ in scored_ayahs[:5]]
-    
+        analysis = analyze_text_v7(ayah["text"])
+        for root, count in analysis["root_frequency"]:
+            all_roots.append(root)
+
+    # 3) حساب التكرار
+    from collections import Counter
+    freq = Counter(all_roots)
+
+    # 4) بناء مستويات الوعي (بسيطة الآن — يمكن تطويرها لاحقًا)
+    levels = []
+    for root, count in freq.items():
+        levels.append({
+            "root": root,
+            "weight": count,
+            "level": 1 if count == 1 else 2 if count <= 3 else 3
+        })
+
+    # 5) ترتيب المستويات
+    levels = sorted(levels, key=lambda x: x["weight"], reverse=True)
+
     return {
-        "surah": surah_num,
-        "roots": [r for r, _ in analysis["root_frequency"]],
-        "key_ayahs": key_ayahs,
-        "status": "Conscious Map v1 with Root Engine v7.0"
+        "surah": surah_number,
+        "levels": levels,
+        "unique_roots": len(freq),
+        "status": "Conscious Map Engine v3 — Root Engine v7"
     }
