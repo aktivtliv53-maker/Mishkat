@@ -62,27 +62,9 @@ if isinstance(quran, pd.DataFrame):
 normalized_quran = []
 for a in quran:
     entry = {}
-    if "surah" in a:
-        entry["surah_number"] = int(a["surah"]) if a["surah"] else 0
-    elif "surah_number" in a:
-        entry["surah_number"] = int(a["surah_number"]) if a["surah_number"] else 0
-    else:
-        entry["surah_number"] = 0
-
-    if "ayah" in a:
-        entry["ayah_number"] = int(a["ayah"]) if a["ayah"] else 0
-    elif "ayah_number" in a:
-        entry["ayah_number"] = int(a["ayah_number"]) if a["ayah_number"] else 0
-    else:
-        entry["ayah_number"] = 0
-
-    if "text" in a:
-        entry["text"] = a["text"]
-    elif "ayah_text" in a:
-        entry["text"] = a["ayah_text"]
-    else:
-        entry["text"] = ""
-
+    entry["surah_number"] = int(a.get("surah") or a.get("surah_number") or 0)
+    entry["ayah_number"] = int(a.get("ayah") or a.get("ayah_number") or 0)
+    entry["text"] = a.get("text") or a.get("ayah_text") or ""
     normalized_quran.append(entry)
 
 quran = normalized_quran
@@ -95,11 +77,8 @@ def get_surah_text(quran, surah_number):
     return " ".join([a["text"] for a in quran if a["surah_number"] == surah_number])
 
 def get_surah_roots_canonical(quran, surah_number):
-    from utils.root_engine_v7 import analyze_text_v7
-
     text = get_surah_text(quran, surah_number)
     analysis = analyze_text_v7(text)
-
     return analysis["root_frequency"]
 
 # ============================
@@ -129,10 +108,10 @@ with tabs[0]:
         if not q.strip():
             st.warning("⚠️ الرجاء كتابة سؤال")
         else:
-            result = run_full_analysis(q, quran)
+            result = run_full_analysis(quran, 1, q)
 
             st.markdown("### 🧬 الجذور")
-            st.write(result.get("roots", []))
+            st.write(result.get("text_root_analysis", {}))
 
             st.markdown("### 🧠 الحالة")
             st.info(result.get("state", ""))
@@ -184,7 +163,7 @@ with tabs[2]:
 with tabs[3]:
     st.subheader("🧬 Gene Spectrum v5")
     surah_num = st.number_input("اختر السورة:", 1, 114, 1, key="gene_spectrum_v5")
-    surah_text = " ".join([a["text"] for a in quran if a["surah_number"] == surah_num])
+    surah_text = get_surah_text(quran, surah_num)
     spectrum = compute_gene_spectrum_v5(surah_text)
     st.write(spectrum)
 
@@ -259,11 +238,13 @@ with tabs[8]:
             collapsible=False
         )
 
-        agraph(nodes=nodes, edges=edges, config=config)
+        try:
+            agraph(nodes=nodes, edges=edges, config=config)
         except ImportError:
             st.error("⚠️ يرجى تثبيت المكتبة: pip install streamlit-agraph")
         except Exception as e:
             st.error(f"خطأ في عرض الخريطة: {e}")
+
 # ============================
 #   FINAL CHECK
 # ============================
