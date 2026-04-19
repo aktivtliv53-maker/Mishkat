@@ -1,3 +1,7 @@
 streamlit
+streamlit-agraph
 pandas
-plotly
+numpy
+altair
+networkx
+matplotlib
