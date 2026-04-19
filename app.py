@@ -777,7 +777,7 @@ try:
     from utils.conscious_map_engine import build_conscious_map
     st.success("✔ Conscious Map Engine متصل")
 except:
-    st.warning("⚠️ Conscious Map Engine غير متصل")ath
+    st.warning("⚠️ Conscious Map Engine غير متصل")
 import colorsys
 import json
 import os
