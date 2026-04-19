@@ -1,5 +1,5 @@
 # ============================
-#   Root Engine v7.2 — Final
+#   Root Engine v7.3 — Safe Version
 #   (اسم الملف root_engine_v7.py كما طلبت)
 # ============================
 
@@ -7,6 +7,9 @@ import re
 from collections import Counter
 from utils.lexicon_v7 import SOVEREIGN_LEXICON, PREFIXES, SUFFIXES, normalize_token
 
+# ------------------------------------
+# 1) تنظيف الكلمة
+# ------------------------------------
 def clean_word(word):
     w = re.sub(r"[^\u0621-\u064A]", "", word)
     w = normalize_token(w)
@@ -23,28 +26,40 @@ def clean_word(word):
 
     return w
 
+# ------------------------------------
+# 2) استخراج الجذر
+# ------------------------------------
 def extract_root_v7(word):
     w = normalize_token(word)
     n = len(w)
 
+    # قاموس سيادي
     if w in SOVEREIGN_LEXICON:
         return SOVEREIGN_LEXICON[w]
 
+    # وزن فعّال (قتال، كتاب)
     if n == 4 and w[1] == "ت":
         return w[0] + w[2] + w[3]
 
-    if n == 4 and w[-2] == "و":
-        return w[0] + w[1] + w[3]
+    # وزن فعول (رسول، غفور)
+    if n >= 4 and w[-2] == "و":
+        if n >= 4:
+            return w[0] + w[1] + w[-1]
 
-    if n == 4 and w[-2] == "ي":
-        return w[0] + w[1] + w[3]
+    # وزن فعيل (عليم، حكيم)
+    if n >= 4 and w[-2] == "ي":
+        if n >= 4:
+            return w[0] + w[1] + w[-1]
 
+    # وزن استفعل (استغفر)
     if w.startswith("است") and n >= 6:
         return w[3] + w[4] + w[5]
 
-    if w.startswith("م") and "ا" in w[1:3]:
+    # وزن مفاعلة (مجادلة)
+    if w.startswith("م") and n >= 5 and "ا" in w[1:3]:
         return w[1] + w[3] + w[4]
 
+    # fallback
     if n == 3:
         return w
     if n > 3:
@@ -52,6 +67,9 @@ def extract_root_v7(word):
 
     return None
 
+# ------------------------------------
+# 3) تحليل النص
+# ------------------------------------
 def analyze_text_v7(text):
     words = text.split()
     roots = []
@@ -69,5 +87,5 @@ def analyze_text_v7(text):
     return {
         "root_frequency": freq,
         "total_roots": len(roots),
-        "status": "Root Engine v7.2"
+        "status": "Root Engine v7.3 — Safe"
     }
