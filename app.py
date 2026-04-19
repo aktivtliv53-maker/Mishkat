@@ -1,6 +1,6 @@
 # ============================
 #   Mishkat v14 — Root Engine v7.0
-#   Lexicon v7 — القرآن يفسر نفسه
+#   بدون root_canonizer
 # ============================
 
 import streamlit as st
@@ -15,7 +15,6 @@ import pandas as pd
 from utils.data_loader import load_quran
 from utils.root_engine_v7 import analyze_text_v7
 from utils.comparison_engine import compare_texts_v12
-from utils.root_canonizer import canonize_root
 from utils.gene_spectrum_engine import compute_gene_spectrum_v5
 from utils.smart_dome_engine import build_smart_dome_v4
 from utils.reasoning_engine import build_reasoning_path_v4
@@ -95,18 +94,11 @@ def get_surah_text(quran, surah_number):
 
 def get_surah_roots_canonical(quran, surah_number):
     from utils.root_engine_v7 import analyze_text_v7
-    from utils.root_canonizer import canonize_root
 
     text = get_surah_text(quran, surah_number)
     analysis = analyze_text_v7(text)
 
-    canonical_roots = []
-    for root, count in analysis["root_frequency"]:
-        canonical_root = canonize_root(root)
-        if canonical_root and len(canonical_root) >= 2:
-            canonical_roots.append((canonical_root, count))
-
-    return canonical_roots
+    return analysis["root_frequency"]
 
 # ============================
 #   MAIN TABS
@@ -125,7 +117,7 @@ tabs = st.tabs([
 ])
 
 # ============================
-#   TAB 1: الاستعلام الذكي
+#   TAB 1
 # ============================
 with tabs[0]:
     st.subheader("🧠 الاستعلام الذكي")
@@ -133,17 +125,13 @@ with tabs[0]:
     if st.button("بحث", key="search_btn") and q.strip():
         result = run_full_analysis(q, quran)
         st.markdown("### 🧬 الجذور")
-        st.write(result["roots"])
-        st.markdown("### 🧠 الحالة")
-        st.info(result["state"])
-        st.markdown("### 🧭 التوجيه")
-        st.success(result["guidance"])
+        st.write(result.get("roots", []))
 
 # ============================
-#   TAB 2: تحليل الجذور
+#   TAB 2
 # ============================
 with tabs[1]:
-    st.subheader("🧬 تحليل الجذور — Root Engine v7.0")
+    st.subheader("🧬 تحليل الجذور")
     text = st.text_area("اكتب نصًا للتحليل:")
     if st.button("تحليل الجذور"):
         analysis = analyze_text_v7(text)
@@ -151,7 +139,7 @@ with tabs[1]:
         st.write(analysis["root_frequency"])
 
 # ============================
-#   TAB 3: الخريطة الواعية
+#   TAB 3
 # ============================
 with tabs[2]:
     st.subheader("🗺️ الخريطة الواعية")
@@ -159,10 +147,10 @@ with tabs[2]:
     if st.button("بناء الخريطة"):
         result = build_conscious_map(surah_num, quran)
         st.markdown("### 🧬 الجذور")
-        st.write(result["roots"])
+        st.write(result.get("roots", []))
 
 # ============================
-#   TAB 4: Gene Spectrum v5
+#   TAB 4
 # ============================
 with tabs[3]:
     st.subheader("🧬 Gene Spectrum v5")
@@ -172,7 +160,7 @@ with tabs[3]:
     st.write(spectrum)
 
 # ============================
-#   TAB 5: Smart Dome v4
+#   TAB 5
 # ============================
 with tabs[4]:
     st.subheader("🕋 Smart Dome v4")
@@ -181,7 +169,7 @@ with tabs[4]:
     st.write(dome)
 
 # ============================
-#   TAB 6: المقارنات v12
+#   TAB 6
 # ============================
 with tabs[5]:
     st.subheader("⚖️ المقارنات v12")
@@ -192,7 +180,7 @@ with tabs[5]:
         st.json(result)
 
 # ============================
-#   TAB 7: الاستدلال v4
+#   TAB 7
 # ============================
 with tabs[6]:
     st.subheader("🧭 الاستدلال")
@@ -202,25 +190,25 @@ with tabs[6]:
         st.write(path)
 
 # ============================
-#   TAB 8: Mesh Networks v3
+#   TAB 8
 # ============================
 with tabs[7]:
     st.subheader("🕸 Mesh Networks v3")
     surah_num = st.number_input("اختر السورة:", 1, 114, 1, key="mesh_v3")
     mesh = build_mesh_networks_v3(quran, surah_num)
-    st.write(mesh["nodes"])
+    st.write(mesh.get("nodes", []))
 
 # ============================
-#   TAB 9: Surah Map v7
+#   TAB 9
 # ============================
 with tabs[8]:
-    st.subheader("🗺️ Surah Map v7 — Root Engine v7.0")
+    st.subheader("🗺️ Surah Map v7")
     surah_number = st.number_input("اختر رقم السورة:", 1, 114, 1, key="surah_map_v7")
     roots = get_surah_roots_canonical(quran, surah_number)
     
     if roots:
         st.success(f"✅ {len(roots)} جذراً")
-        st.write(roots[:20])
+        st.write(roots[:30])
     else:
         st.warning("⚠️ لم يتم العثور على جذور")
 
