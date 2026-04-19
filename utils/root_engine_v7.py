@@ -1,16 +1,43 @@
 # ============================
-#   Root Engine v7.0 — الإصدار النهائي
+#   Root Engine v7.0 — الإصدار المباشر
+#   لا يعتمد على canonize_root
 # ============================
 
 import re
 from collections import Counter
-from utils.root_canonizer import canonize_root
 
 STOPWORDS = {
     "من", "في", "على", "عن", "إلى", "و", "يا", "ما", "هذا", "هذه",
     "ذلك", "تلك", "ثم", "ف", "ب", "ل", "ك", "إن", "أن", "قد", "هل",
-    "أ", "إ", "ألا", "أفلا", "أولم", "ألم", "لعل", "ليت", "هو", "هي",
-    "هم", "هن", "نحن", "أنت", "أنتم", "أنتن", "الذي", "التي", "الذين"
+    "أ", "إ", "ألا", "أفلا", "أولم", "ألم", "لعل", "ليت"
+}
+
+# قاموس تحويل المقاطع إلى جذور صحيحة
+MAPPING = {
+    "الر": "رحم", "بِس": "سمو", "اله": "اله", "الد": "دين",
+    "اِي": "ايي", "نَع": "نعم", "نَس": "عون", "صِر": "صرط",
+    "غَي": "غير", "رَب": "ربب", "يَو": "يوم", "مَا": "ما",
+    "اهْ": "هدي", "الص": "صرط", "عَل": "علو", "الّ": "ال",
+    "اَن": "ان", "وَا": "و", "وَل": "و", "فِي": "في",
+    "مِن": "من", "قَا": "قوم", "لَا": "لا", "فَل": "فلح",
+    "بَع": "بعث", "لَه": "له", "يَا": "يا", "بِه": "به",
+    "تَع": "تع", "اَو": "او", "يَع": "يع", "بِم": "بم",
+    "مَن": "من", "هُم": "هم", "وَق": "وق", "قُل": "قول",
+    "اُو": "اول", "فَم": "فم", "لَك": "لك", "ثُم": "ثم",
+    "يُو": "يو", "اَم": "ام", "اَي": "اي", "خَي": "خير",
+    "كُن": "كون", "عَن": "عن", "بَي": "بين", "وَع": "وع",
+    "كُل": "كل", "شَي": "شي", "وَه": "وه", "عِن": "عن",
+    "كَم": "كم", "يَت": "يت", "يَش": "يش", "يَك": "يك",
+    "اِذ": "اذ", "تَك": "تك", "وَب": "وب", "كَف": "كف",
+    "وَت": "وت", "قَد": "قد", "لَع": "لع", "هُو": "هو",
+    "جَا": "جا", "لَن": "لن", "اِب": "اب", "فَر": "فر",
+    "حَت": "حت", "ايَ": "ايا", "يُن": "ين", "لَم": "لم",
+    "يَق": "يق", "خَل": "خل", "وَر": "ور", "تَق": "تق",
+    "مُو": "مو", "قَب": "قبل", "يَس": "يس", "خَا": "خا",
+    "اَر": "ار", "يُح": "يح", "سَب": "سبب", "بِك": "بك",
+    "بَل": "بل", "اَح": "اح", "مَع": "مع", "اسْ": "اس",
+    "تَت": "تت", "قَل": "قل", "اَج": "اج", "تَر": "تر",
+    "يُب": "يب", "يَر": "ير",
 }
 
 def normalize_text(text):
@@ -20,31 +47,34 @@ def normalize_text(text):
 def extract_words(text):
     text = normalize_text(text)
     words = text.split()
-    return [w for w in words if w not in STOPWORDS and len(w) > 2]
+    return [w for w in words if w not in STOPWORDS and len(w) > 1]
 
 def analyze_text_v7(text):
-    """
-    Root Engine v7.0 - يستخرج الجذور الحقيقية باستخدام canonize_root
-    """
     words = extract_words(text)
     root_counter = Counter()
     
     for word in words:
-        # محاولة استخراج جذر ثلاثي
-        if len(word) >= 3:
-            # أخذ أول 3 أحرف كجذر محتمل
-            potential = word[:3]
-            canonical = canonize_root(potential)
-            if canonical and len(canonical) >= 2:
-                root_counter[canonical] += 1
+        if len(word) >= 2:
+            key = word[:3] if len(word) >= 3 else word[:2]
+            
+            if key in MAPPING:
+                root = MAPPING[key]
+                root_counter[root] += 1
+            else:
+                # محاولة البحث عن تطابق أطول
+                for k, v in MAPPING.items():
+                    if word.startswith(k):
+                        root_counter[v] += 1
+                        break
     
-    # ترتيب النتائج
-    sorted_roots = root_counter.most_common()
+    # إزالة الجذور غير المرغوب فيها
+    filtered = [(r, c) for r, c in root_counter.most_common() 
+                if len(r) >= 2 and r not in ["ما", "من", "في", "على", "عن", "الى"]]
     
     return {
-        "root_frequency": sorted_roots,
-        "total_roots": len(sorted_roots),
-        "status": "Root Engine v7.0"
+        "root_frequency": filtered,
+        "total_roots": len(filtered),
+        "status": "Root Engine v7.0 - Direct Mapping"
     }
 
 # للتوافق مع الإصدارات القديمة
