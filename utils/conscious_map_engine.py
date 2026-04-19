@@ -1,25 +1,27 @@
 # ============================
-#   Conscious Map Engine v3.1 — Final
+#   Conscious Map Engine v4 — Sovereign Edition
+#   (اسم الملف ثابت كما طلبت)
+#   يعمل على كل سور القرآن
 # ============================
 
-from utils.root_engine_v7 import analyze_text_v7
 from collections import Counter
+from utils.root_engine_v7 import analyze_text_v7
+from utils.root_filter_v1 import is_valid_root
+from utils.lexicon_v7_extended import SOVEREIGN_LEXICON_EXTENDED
+from utils.lexicon_v7 import normalize_token
 
-STOP_ROOTS = {
-    "ال","لا","يا","ثم","كل","كم","هم","هو","هي","هن","به","بم","لك","وب",
-    "يت","يش","يك","لع","قد","تك","جا","مو","اس","لن","لم","مع","بل","وت","ور",
-    "يو","ين","تر","ير","وق","وع","وه","شي"
-}
+# ------------------------------------
+# 1) تطبيع الجذر عبر القاموس الموسّع
+# ------------------------------------
+def normalize_root(root):
+    r = normalize_token(root)
+    if r in SOVEREIGN_LEXICON_EXTENDED:
+        return SOVEREIGN_LEXICON_EXTENDED[r]
+    return r
 
-def is_valid_root(root):
-    if not root:
-        return False
-    if len(root) < 3:
-        return False
-    if root in STOP_ROOTS:
-        return False
-    return True
-
+# ------------------------------------
+# 2) بناء الخريطة الوجودية
+# ------------------------------------
 def build_conscious_map(quran, surah_number):
     ayahs = [a for a in quran if a["surah_number"] == surah_number]
 
@@ -27,7 +29,10 @@ def build_conscious_map(quran, surah_number):
 
     for ayah in ayahs:
         analysis = analyze_text_v7(ayah["text"])
+
         for root, count in analysis["root_frequency"]:
+            root = normalize_root(root)
+
             if is_valid_root(root):
                 all_roots.append(root)
 
@@ -47,5 +52,5 @@ def build_conscious_map(quran, surah_number):
         "surah": surah_number,
         "levels": levels,
         "unique_roots": len(freq),
-        "status": "Conscious Map Engine v3.1 — Filtered"
+        "status": "Conscious Map v4 — Sovereign Filtering + Extended Lexicon"
     }
