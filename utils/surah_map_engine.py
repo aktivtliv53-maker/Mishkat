@@ -1,12 +1,27 @@
 # ============================
-#   Surah Map Engine v7 — Stable Network Edition
-#   (اسم ثابت — يعمل على root_engine_v7 مباشرة)
+#   Surah Map Engine v7 — Root Network Edition
+#   (نسخة كاملة — جاهزة — مستقرة)
 # ============================
 
 from utils.root_engine_v7 import analyze_text_v7
 
 # ------------------------------------
-# 1) بناء شبكة الجذور داخل السورة
+# 1) استخراج جذور السورة
+# ------------------------------------
+def extract_surah_roots(quran, surah_number):
+    ayahs = [a for a in quran if a["surah_number"] == surah_number]
+    all_roots = []
+
+    for ayah in ayahs:
+        analysis = analyze_text_v7(ayah["text"])
+        roots = [r for r, c in analysis["root_frequency"]]
+        all_roots.extend(roots)
+
+    return all_roots
+
+
+# ------------------------------------
+# 2) بناء شبكة الجذور داخل السورة
 # ------------------------------------
 def build_surah_map(quran, surah_number):
     ayahs = [a for a in quran if a["surah_number"] == surah_number]
@@ -54,4 +69,16 @@ def build_surah_map(quran, surah_number):
         "nodes": node_list,
         "links": link_list,
         "status": "Surah Map v7 — Root Network Active"
+    }
+
+
+# ------------------------------------
+# 3) إحصاءات السورة
+# ------------------------------------
+def get_surah_stats(quran, surah_number):
+    data = build_surah_map(quran, surah_number)
+    return {
+        "unique_roots": len(data["nodes"]),
+        "connections": len(data["links"]),
+        "max_weight": max([n["weight"] for n in data["nodes"]]) if data["nodes"] else 0
     }
