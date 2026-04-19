@@ -242,8 +242,7 @@ with tabs[8]:
 
     if st.button("عرض الخريطة"):
         try:
-            import streamlit_agraph as agraph
-            from streamlit_agraph import Node, Edge, Config
+            from streamlit_agraph import agraph, Node, Edge, Config
             
             result = build_surah_map(quran, surah_number)
 
@@ -265,7 +264,6 @@ with tabs[8]:
             st.error("⚠️ يرجى تثبيت المكتبة: pip install streamlit-agraph")
         except Exception as e:
             st.error(f"خطأ في عرض الخريطة: {e}")
-
 # ============================
 #   FINAL CHECK
 # ============================
