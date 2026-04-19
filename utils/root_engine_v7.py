@@ -1,6 +1,5 @@
 # ============================
 #   Root Engine v7.2 — Final
-#   Pattern-based + Weight-based
 # ============================
 
 import re
@@ -23,35 +22,28 @@ def clean_word(word):
 
     return w
 
-def extract_root_v7_2(word):
+def extract_root_v7(word):
     w = normalize_token(word)
     n = len(w)
 
-    # 1) القاموس السيادي
     if w in SOVEREIGN_LEXICON:
         return SOVEREIGN_LEXICON[w]
 
-    # 2) أوزان فعّال (قتال، كتاب)
     if n == 4 and w[1] == "ت":
         return w[0] + w[2] + w[3]
 
-    # 3) أوزان فعول (رسول، غفور)
     if n == 4 and w[-2] == "و":
         return w[0] + w[1] + w[3]
 
-    # 4) أوزان فعيل (عليم، حكيم)
     if n == 4 and w[-2] == "ي":
         return w[0] + w[1] + w[3]
 
-    # 5) استفعل (استغفر)
     if w.startswith("است") and n >= 6:
         return w[3] + w[4] + w[5]
 
-    # 6) مفاعلة (مجادلة)
     if w.startswith("م") and "ا" in w[1:3]:
         return w[1] + w[3] + w[4]
 
-    # 7) fallback
     if n == 3:
         return w
     if n > 3:
@@ -59,7 +51,7 @@ def extract_root_v7_2(word):
 
     return None
 
-def analyze_text_v7_2(text):
+def analyze_text_v7(text):
     words = text.split()
     roots = []
 
@@ -68,7 +60,7 @@ def analyze_text_v7_2(text):
         if not cleaned:
             continue
 
-        root = extract_root_v7_2(cleaned)
+        root = extract_root_v7(cleaned)
         if root:
             roots.append(root)
 
