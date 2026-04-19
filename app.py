@@ -145,9 +145,9 @@ with tabs[2]:
     st.subheader("🗺️ الخريطة الواعية")
     surah_num = st.number_input("اختر السورة:", 1, 114, 1, key="conscious_map")
     if st.button("بناء الخريطة"):
-       result = build_conscious_map(quran, surah_num)
+        result = build_conscious_map(quran, surah_num)
         st.markdown("### 🧬 الجذور")
-        st.write(result.get("roots", []))
+        st.write(result.get("levels", []))
 
 # ============================
 #   TAB 4
